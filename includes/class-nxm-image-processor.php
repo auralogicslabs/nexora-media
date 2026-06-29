@@ -74,12 +74,36 @@ class NXM_Image_Processor {
         $tmp_path = $target_path . '.tmp';
         $success  = $this->engine->convert( $source_path, $tmp_path, $format, $quality );
         if ( $success && file_exists( $tmp_path ) ) {
-            @rename( $tmp_path, $target_path );
+            // Atomic publish: move the fully-encoded temp file into place so a
+            // half-written variant never appears at the final path.
+            $fs = self::filesystem();
+            if ( $fs && $fs->move( $tmp_path, $target_path, true ) ) {
+                // Moved.
+            } elseif ( file_exists( $tmp_path ) ) {
+                wp_delete_file( $tmp_path );
+            }
         } elseif ( file_exists( $tmp_path ) ) {
-            @unlink( $tmp_path );
+            wp_delete_file( $tmp_path );
         }
 
         return file_exists( $target_path ) ? $target_path : null;
+    }
+
+    /**
+     * Lazily initialize and return the WP_Filesystem instance, or null on failure.
+     */
+    private static function filesystem() {
+        global $wp_filesystem;
+        if ( $wp_filesystem instanceof \WP_Filesystem_Base ) {
+            return $wp_filesystem;
+        }
+        if ( ! function_exists( 'WP_Filesystem' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+        if ( WP_Filesystem() ) {
+            return $wp_filesystem;
+        }
+        return null;
     }
 
     /**

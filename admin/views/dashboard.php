@@ -198,6 +198,7 @@ $server_cards       = [
                                     <span class="nxm-progress-indicator<?php echo ! $processing_paused && ! empty( $queue_status['running'] ) ? ' is-running' : ''; ?>" id="nxm-progress-indicator" aria-hidden="true"></span>
                                     <span id="nxm-progress-current"><?php
                                         if ( ! empty( $queue_status['current_label'] ) ) {
+                                            /* translators: %s: filename of the image currently being processed. */
                                             echo esc_html( sprintf( __( 'Processing %s', 'nexora-media' ), $queue_status['current_label'] ) );
                                         } elseif ( $queue_status['pending'] > 0 ) {
                                             esc_html_e( 'Waiting for next batch...', 'nexora-media' );
@@ -205,28 +206,40 @@ $server_cards       = [
                                             esc_html_e( 'No active batch', 'nexora-media' );
                                         }
                                     ?></span>
-                                    <span class="nxm-progress-failed" id="nxm-progress-failed" <?php echo (int) ( $queue_status['failed'] ?? 0 ) > 0 ? '' : 'hidden'; ?>><?php echo esc_html( sprintf( __( '%d failed (lifetime)', 'nexora-media' ), (int) ( $queue_status['failed'] ?? 0 ) ) ); ?></span>
+                                    <span class="nxm-progress-failed" id="nxm-progress-failed" <?php echo (int) ( $queue_status['failed'] ?? 0 ) > 0 ? '' : 'hidden'; ?>><?php
+                                        /* translators: %d: number of images that have failed optimization over the plugin's lifetime. */
+                                        echo esc_html( sprintf( __( '%d failed (lifetime)', 'nexora-media' ), (int) ( $queue_status['failed'] ?? 0 ) ) ); ?></span>
                                 </div>
                             </div>
                             <div class="nxm-status-message nxm-status--info" id="nxm-status-message">
-                                <?php echo $processing_paused ? esc_html__( 'Optimization is paused. Click Optimize Images when you want to process the library.', 'nexora-media' ) : ( $queue_status['pending'] > 0 ? esc_html( sprintf( __( '%d images waiting for optimization.', 'nexora-media' ), $queue_status['pending'] ) ) : esc_html__( 'Queue is clear. New images wait for your next manual run.', 'nexora-media' ) ); ?>
+                                <?php
+                                /* translators: %d: number of images waiting in the optimization queue. */
+                                echo $processing_paused ? esc_html__( 'Optimization is paused. Click Optimize Images when you want to process the library.', 'nexora-media' ) : ( $queue_status['pending'] > 0 ? esc_html( sprintf( __( '%d images waiting for optimization.', 'nexora-media' ), $queue_status['pending'] ) ) : esc_html__( 'Queue is clear. New images wait for your next manual run.', 'nexora-media' ) ); ?>
                             </div>
                         </section>
 
                         <section class="nxm-metrics-strip">
                             <div class="nxm-command-grid nxm-command-grid--metrics">
                                 <div class="nxm-stat-card"><span><?php esc_html_e( 'Queue Remaining', 'nexora-media' ); ?></span><strong id="nxm-stat-pending"><?php echo esc_html( (string) $queue_status['pending'] ); ?></strong><small><?php esc_html_e( 'Current build', 'nexora-media' ); ?></small></div>
-                                <div class="nxm-stat-card"><span><?php esc_html_e( 'Build Completed', 'nexora-media' ); ?></span><strong id="nxm-stat-processed"><?php echo esc_html( (string) $current_done ); ?></strong><small id="nxm-stat-processed-note"><?php echo esc_html( $current_total > 0 ? sprintf( __( 'of %d in this run', 'nexora-media' ), $current_total ) : __( 'No active run', 'nexora-media' ) ); ?></small></div>
-                                <div class="nxm-stat-card"><span><?php esc_html_e( 'Ready Variants', 'nexora-media' ); ?></span><strong id="nxm-stat-webp"><?php echo esc_html( (string) $media_summary['optimized'] ); ?></strong><small id="nxm-stat-webp-note"><?php echo esc_html( sprintf( __( 'of %d library images', 'nexora-media' ), (int) $media_summary['total'] ) ); ?></small></div>
+                                <div class="nxm-stat-card"><span><?php esc_html_e( 'Build Completed', 'nexora-media' ); ?></span><strong id="nxm-stat-processed"><?php echo esc_html( (string) $current_done ); ?></strong><small id="nxm-stat-processed-note"><?php
+                                    /* translators: %d: number of images in the current optimization run. */
+                                    echo esc_html( $current_total > 0 ? sprintf( __( 'of %d in this run', 'nexora-media' ), $current_total ) : __( 'No active run', 'nexora-media' ) ); ?></small></div>
+                                <div class="nxm-stat-card"><span><?php esc_html_e( 'Ready Variants', 'nexora-media' ); ?></span><strong id="nxm-stat-webp"><?php echo esc_html( (string) $media_summary['optimized'] ); ?></strong><small id="nxm-stat-webp-note"><?php
+                                    /* translators: %d: total number of images in the media library. */
+                                    echo esc_html( sprintf( __( 'of %d library images', 'nexora-media' ), (int) $media_summary['total'] ) ); ?></small></div>
                             </div>
                             <div class="nxm-optimization-insights nxm-optimization-insights--dashboard">
                                 <div class="nxm-ring-card">
                                     <div class="nxm-ring" style="--nxm-ring-value: <?php echo esc_attr( (string) $media_summary['saved_percent'] ); ?>%;"><span><?php echo esc_html( (string) $media_summary['saved_percent'] ); ?>%</span></div>
-                                    <div class="nxm-ring-copy"><strong><?php esc_html_e( 'Space saved', 'nexora-media' ); ?></strong><small><?php echo esc_html( sprintf( __( 'Initial %1$s - Current %2$s', 'nexora-media' ), size_format( $media_summary['bytes_in'] ), size_format( $media_summary['best_bytes'] ) ) ); ?></small></div>
+                                    <div class="nxm-ring-copy"><strong><?php esc_html_e( 'Space saved', 'nexora-media' ); ?></strong><small><?php
+                                        /* translators: 1: initial total size of images, 2: current total size after optimization. */
+                                        echo esc_html( sprintf( __( 'Initial %1$s - Current %2$s', 'nexora-media' ), size_format( $media_summary['bytes_in'] ), size_format( $media_summary['best_bytes'] ) ) ); ?></small></div>
                                 </div>
                                 <div class="nxm-ring-card">
                                     <div class="nxm-ring" id="nxm-library-ready-ring" style="--nxm-ring-value: <?php echo esc_attr( (string) $optimized_pct ); ?>%;"><span id="nxm-library-ready-pct"><?php echo esc_html( (string) $optimized_pct ); ?>%</span></div>
-                                    <div class="nxm-ring-copy"><strong><?php esc_html_e( 'Images optimized', 'nexora-media' ); ?></strong><small id="nxm-library-ready-text"><?php echo esc_html( sprintf( __( '%1$d optimized - %2$d pending - %3$d total', 'nexora-media' ), (int) $media_summary['optimized'], (int) $unoptimized_count, (int) $media_summary['total'] ) ); ?></small></div>
+                                    <div class="nxm-ring-copy"><strong><?php esc_html_e( 'Images optimized', 'nexora-media' ); ?></strong><small id="nxm-library-ready-text"><?php
+                                        /* translators: 1: number of optimized images, 2: number of pending images, 3: total number of images. */
+                                        echo esc_html( sprintf( __( '%1$d optimized - %2$d pending - %3$d total', 'nexora-media' ), (int) $media_summary['optimized'], (int) $unoptimized_count, (int) $media_summary['total'] ) ); ?></small></div>
                                 </div>
                             </div>
                         </section>
@@ -234,15 +247,21 @@ $server_cards       = [
                         <section class="nxm-engine-pipeline" aria-label="<?php esc_attr_e( 'Optimization pipeline', 'nexora-media' ); ?>">
                             <div class="nxm-pipeline-node is-ready">
                                 <span class="dashicons dashicons-upload"></span>
-                                <div><strong><?php esc_html_e( 'Upload Intake', 'nexora-media' ); ?></strong><small><?php echo esc_html( sprintf( __( '%d library images detected', 'nexora-media' ), (int) $media_summary['total'] ) ); ?></small></div>
+                                <div><strong><?php esc_html_e( 'Upload Intake', 'nexora-media' ); ?></strong><small><?php
+                                    /* translators: %d: total number of images detected in the media library. */
+                                    echo esc_html( sprintf( __( '%d library images detected', 'nexora-media' ), (int) $media_summary['total'] ) ); ?></small></div>
                             </div>
                             <div class="nxm-pipeline-node <?php echo esc_attr( $queue_status['pending'] > 0 ? 'is-warning' : 'is-ready' ); ?>">
                                 <span class="dashicons dashicons-update"></span>
-                                <div><strong><?php esc_html_e( 'Protected Queue', 'nexora-media' ); ?></strong><small><?php echo esc_html( $queue_status['pending'] > 0 ? sprintf( __( '%d waiting in safe batches', 'nexora-media' ), (int) $queue_status['pending'] ) : __( 'No pending work', 'nexora-media' ) ); ?></small></div>
+                                <div><strong><?php esc_html_e( 'Protected Queue', 'nexora-media' ); ?></strong><small><?php
+                                    /* translators: %d: number of images waiting in safe batches. */
+                                    echo esc_html( $queue_status['pending'] > 0 ? sprintf( __( '%d waiting in safe batches', 'nexora-media' ), (int) $queue_status['pending'] ) : __( 'No pending work', 'nexora-media' ) ); ?></small></div>
                             </div>
                             <div class="nxm-pipeline-node <?php echo esc_attr( $media_summary['optimized'] > 0 ? 'is-ready' : 'is-neutral' ); ?>">
                                 <span class="dashicons dashicons-format-image"></span>
-                                <div><strong><?php esc_html_e( 'WebP Variant Layer', 'nexora-media' ); ?></strong><small><?php echo esc_html( sprintf( __( '%d optimized assets ready', 'nexora-media' ), (int) $media_summary['optimized'] ) ); ?></small></div>
+                                <div><strong><?php esc_html_e( 'WebP Variant Layer', 'nexora-media' ); ?></strong><small><?php
+                                    /* translators: %d: number of optimized WebP assets ready for delivery. */
+                                    echo esc_html( sprintf( __( '%d optimized assets ready', 'nexora-media' ), (int) $media_summary['optimized'] ) ); ?></small></div>
                             </div>
                             <div class="nxm-pipeline-node <?php echo esc_attr( $delivery_ready ? 'is-ready' : 'is-neutral' ); ?>">
                                 <span class="dashicons dashicons-visibility"></span>
@@ -264,7 +283,9 @@ $server_cards       = [
                                 </div>
                                 <div class="nxm-media-savings">
                                     <strong><?php echo esc_html( (string) $media_summary['saved_percent'] ); ?>%</strong>
-                                    <span><?php echo esc_html( sprintf( __( '%s saved', 'nexora-media' ), size_format( $media_summary['saved'] ) ) ); ?></span>
+                                    <span><?php
+                                        /* translators: %s: human-readable amount of disk space saved (e.g. "12 MB"). */
+                                        echo esc_html( sprintf( __( '%s saved', 'nexora-media' ), size_format( $media_summary['saved'] ) ) ); ?></span>
                                 </div>
                             </div>
                             <div class="nxm-media-board" id="nxm-media-table-body">

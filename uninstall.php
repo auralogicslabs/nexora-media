@@ -88,14 +88,20 @@ foreach ( $attachment_meta_keys as $meta_key ) {
 $upload_dir = wp_upload_dir();
 $nxm_dir    = trailingslashit( $upload_dir['basedir'] ) . 'nexora-media';
 if ( is_dir( $nxm_dir ) ) {
-	$css_dir = trailingslashit( $nxm_dir ) . 'css';
-	if ( is_dir( $css_dir ) ) {
-		foreach ( (array) glob( trailingslashit( $css_dir ) . '*.css' ) as $file ) {
-			if ( is_file( $file ) ) {
-				wp_delete_file( $file );
-			}
-		}
-		@rmdir( $css_dir );
+	if ( ! function_exists( 'WP_Filesystem' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
 	}
-	@rmdir( $nxm_dir );
+	global $wp_filesystem;
+	if ( WP_Filesystem() && $wp_filesystem instanceof WP_Filesystem_Base ) {
+		$css_dir = trailingslashit( $nxm_dir ) . 'css';
+		if ( $wp_filesystem->is_dir( $css_dir ) ) {
+			foreach ( (array) glob( trailingslashit( $css_dir ) . '*.css' ) as $file ) {
+				if ( is_file( $file ) ) {
+					wp_delete_file( $file );
+				}
+			}
+			$wp_filesystem->rmdir( $css_dir );
+		}
+		$wp_filesystem->rmdir( $nxm_dir );
+	}
 }

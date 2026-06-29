@@ -112,6 +112,9 @@ class NXM_Admin {
     }
 
     public function enqueue_assets( string $hook ): void {
+        // Read-only screen check to decide whether to enqueue admin assets; no
+        // state change, so no nonce applies. WordPress sets the `page` query var.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $page        = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
         $is_nxm_page = 0 === strpos( $page, 'nxm' );
 
@@ -219,7 +222,8 @@ class NXM_Admin {
             $raw_value = isset( $_POST['value'] ) ? sanitize_text_field( wp_unslash( $_POST['value'] ) ) : '0';
             $value     = 'nxm_quality' === $option ? $this->sanitize_quality( $raw_value ) : $this->sanitize_max_width( $raw_value );
         } else {
-            $value = isset( $_POST['value'] ) ? (int) wp_unslash( $_POST['value'] ) : 0;
+            // absint() fully sanitizes the value to a non-negative integer.
+            $value = isset( $_POST['value'] ) ? absint( wp_unslash( $_POST['value'] ) ) : 0;
         }
         // phpcs:enable
 
@@ -388,7 +392,9 @@ class NXM_Admin {
         }
 
         if ( function_exists( 'set_time_limit' ) ) {
-            @set_time_limit( 120 );
+            // Extend the limit for a single on-demand image encode; image
+            // optimization can legitimately exceed the default cap on large files.
+            @set_time_limit( 120 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
         }
 
         $before = $this->get_media_item_report( $attachment_id );
@@ -735,6 +741,7 @@ class NXM_Admin {
             'formats'       => $formats,
             'formats_label' => $formats_label,
             'updated_at'    => $updated_at,
+            /* translators: %s: human-readable time difference, e.g. "5 minutes". */
             'updated_label' => $updated_at ? sprintf( __( 'Optimized %s ago', 'nexora-media' ), human_time_diff( $updated_at ) ) : __( 'Not processed yet', 'nexora-media' ),
             'frontend_synced' => $frontend_synced,
             'frontend_output_active' => $frontend_output_active,

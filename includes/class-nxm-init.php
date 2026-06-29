@@ -54,9 +54,9 @@ class NXM_Init {
     }
 
     public function register_core(): void {
-        // Load translation
-        load_plugin_textdomain( 'nexora-media', false, dirname( NXM_BASENAME ) . '/languages' );
-        
+        // Translations are loaded automatically by WordPress.org for hosted
+        // plugins since WP 4.6, so no manual load_plugin_textdomain() is needed.
+
         // Native delivery swaps eligible WordPress attachment image URLs only.
         if ( self::is_frontend_delivery_request() && class_exists( 'NXM_Native_Delivery' ) ) {
             NXM_Native_Delivery::get_instance();
@@ -130,6 +130,11 @@ class NXM_Init {
     }
 
     private static function is_builder_or_preview_request(): bool {
+        // This only READS query vars to detect a page-builder/preview context so
+        // delivery rewriting can stand down while editing. It performs no action
+        // and changes no state, so a nonce is neither applicable nor available
+        // (these markers are set by third-party builders, not by this plugin).
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended
         $query_keys = [
             'elementor-preview',
             'et_fb',
@@ -156,6 +161,7 @@ class NXM_Init {
         if ( in_array( $preview, [ '1', 'true' ], true ) ) {
             return true;
         }
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
         if ( function_exists( 'is_customize_preview' ) && is_customize_preview() ) {
             return true;

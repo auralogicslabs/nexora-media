@@ -408,7 +408,9 @@ class NXM_REST {
 		}
 
 		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 120 );
+			// Extend the limit for a single on-demand image encode; image
+			// optimization can legitimately exceed the default cap on large files.
+			@set_time_limit( 120 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
 		}
 
 		NXM_Queue::get_instance()->resume_processing();

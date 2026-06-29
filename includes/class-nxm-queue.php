@@ -518,7 +518,7 @@ class NXM_Queue {
 
         foreach ( array_unique( $paths ) as $path ) {
             if ( is_string( $path ) && file_exists( $path ) && strpos( wp_normalize_path( $path ), wp_normalize_path( wp_upload_dir()['basedir'] ) ) === 0 ) {
-                @unlink( $path );
+                wp_delete_file( $path );
             }
         }
     }
