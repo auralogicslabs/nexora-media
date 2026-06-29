@@ -1,0 +1,401 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────
+   Design tokens — Nexora Media (Deep Purple + Lime)
+   Same component system as Pulse, distinct palette so users
+   recognise the sibling product instantly.
+   ────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Surfaces */
+    --np-bg-page:           #F6F4ED;
+    --np-bg-card:           #FFFFFF;
+    --np-bg-sidebar:        #2E1F62;
+    --np-bg-sidebar-hover:  rgba(255, 255, 255, 0.06);
+    --np-bg-sidebar-active: #FFFFFF;
+
+    /* Brand — lime is moved 1-2 stops darker so white text + icons hit AA contrast.
+       The light lime (#84CC2C) reads as decorative on white; #4F8C10 reads as a button. */
+    --np-brand-primary:       #4F8C10; /* lime-600 — deep, readable */
+    --np-brand-primary-hover: #3F6E12; /* lime-700 */
+    --np-brand-primary-dim:   #E5F8CC; /* still light for subtle backgrounds */
+    --np-violet-accent:       #4A329C;
+
+    /* Functional */
+    --np-success: #10B981;
+    --np-warning: #F59E0B;
+    --np-danger:  #EF4444;
+    --np-info:    #3B82F6;
+
+    /* Text */
+    --np-text-primary:   #0F172A;
+    --np-text-secondary: #475569;
+    --np-text-muted:     #64748B;
+    --np-text-on-dark:   #E7DFF7;
+    --np-text-on-dark-muted: rgba(231, 223, 247, 0.62);
+
+    /* Borders */
+    --np-border:       #E8E2D4;
+    --np-border-soft:  #F1ECDE;
+    --np-border-dark:  rgba(255, 255, 255, 0.10);
+
+    /* Shadows */
+    --np-shadow-card:       0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 6px 0 rgb(15 23 42 / 0.04);
+    --np-shadow-card-hover: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -1px rgb(15 23 42 / 0.05);
+    --np-shadow-modal:      0 24px 80px -12px rgb(15 23 42 / 0.30), 0 8px 24px -6px rgb(15 23 42 / 0.15);
+
+    /* Layout */
+    --np-sidebar-w: 248px;
+    --np-sidebar-collapsed-w: 72px;
+    --np-radius-sm: 10px;
+    --np-radius-md: 14px;
+    --np-radius-lg: 18px;
+    --np-radius-xl: 24px;
+    --np-transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--np-bg-page);
+    color: var(--np-text-primary);
+  }
+
+  h1, h2, h3, h4 {
+    font-feature-settings: 'cv01', 'cv02', 'cv03', 'ss01';
+    letter-spacing: -0.018em;
+    font-weight: 700;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Components — mirror Nexora Pulse exactly
+   ────────────────────────────────────────────────────────────── */
+@layer components {
+
+  .np-card {
+    background: var(--np-bg-card);
+    border-radius: var(--np-radius-lg);
+    border: 1px solid var(--np-border);
+    box-shadow: var(--np-shadow-card);
+  }
+  .np-card-hover {
+    @apply np-card transition-all duration-200;
+  }
+  .np-card-hover:hover {
+    box-shadow: var(--np-shadow-card-hover);
+    border-color: #DDD5C0;
+    transform: translateY(-1px);
+  }
+
+  /* Buttons — deep-lime primary with white text/icons. WP admin's a:hover
+     forces color to #00a0d2, so we use !important to defend. */
+  .np-btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+           transition-all duration-[160ms] select-none
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none;
+    color: #FFFFFF !important;
+    text-decoration: none !important;
+    background: var(--np-brand-primary);
+    box-shadow:
+      0 1px 0 0 rgb(255 255 255 / 0.18) inset,
+      0 2px 4px 0 rgb(79 140 16 / 0.36),
+      0 1px 2px 0 rgb(79 140 16 / 0.22);
+    letter-spacing: -0.01em;
+  }
+  .np-btn-primary svg { color: #FFFFFF !important; }
+  .np-btn-primary:hover:not(:disabled),
+  .np-btn-primary:focus:not(:disabled) {
+    color: #FFFFFF !important;
+    background: var(--np-brand-primary-hover);
+    box-shadow:
+      0 1px 0 0 rgb(255 255 255 / 0.22) inset,
+      0 6px 16px 0 rgb(63 110 18 / 0.40),
+      0 2px 4px 0 rgb(63 110 18 / 0.25);
+    transform: translateY(-1px);
+  }
+  .np-btn-primary:hover:not(:disabled) svg,
+  .np-btn-primary:focus:not(:disabled) svg { color: #FFFFFF !important; }
+  .np-btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow:
+      0 1px 0 0 rgb(255 255 255 / 0.12) inset,
+      0 1px 3px 0 rgb(79 140 16 / 0.30);
+  }
+
+  .np-btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+           bg-white
+           transition-all duration-[160ms] select-none
+           disabled:opacity-40 disabled:cursor-not-allowed;
+    color: var(--np-text-secondary) !important;
+    text-decoration: none !important;
+    border: 1px solid var(--np-border);
+    box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  }
+  .np-btn-secondary:hover:not(:disabled),
+  .np-btn-secondary:focus:not(:disabled) {
+    color: var(--np-text-primary) !important;
+    border-color: #C8BE9D;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px 0 rgb(15 23 42 / 0.06);
+  }
+
+  .np-btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+           text-slate-600 hover:text-slate-900
+           hover:bg-cream-200 transition-all duration-150 select-none;
+  }
+
+  .np-btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+           text-red-600 bg-white
+           hover:bg-red-50 transition-all duration-150 select-none
+           disabled:opacity-40 disabled:cursor-not-allowed;
+    border: 1px solid #FECACA;
+  }
+
+  /* Badges */
+  .np-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+    letter-spacing: 0.01em;
+  }
+  .np-badge-critical { @apply np-badge bg-red-50 text-red-700;
+    box-shadow: inset 0 0 0 1px rgb(239 68 68 / 0.25); }
+  .np-badge-high { @apply np-badge bg-orange-50 text-orange-700;
+    box-shadow: inset 0 0 0 1px rgb(249 115 22 / 0.25); }
+  .np-badge-medium { @apply np-badge bg-amber-50 text-amber-700;
+    box-shadow: inset 0 0 0 1px rgb(245 158 11 / 0.25); }
+  .np-badge-low { @apply np-badge bg-sky-50 text-sky-700;
+    box-shadow: inset 0 0 0 1px rgb(14 165 233 / 0.25); }
+  .np-badge-ok { @apply np-badge bg-emerald-50 text-emerald-700;
+    box-shadow: inset 0 0 0 1px rgb(16 185 129 / 0.25); }
+  .np-badge-pro {
+    @apply np-badge text-white;
+    background: linear-gradient(135deg, #4F8C10, #3F6E12);
+    box-shadow: 0 1px 4px 0 rgb(63 110 18 / 0.45);
+  }
+
+  .np-input {
+    @apply w-full rounded-xl bg-white
+           px-3.5 py-2.5 text-sm text-slate-900
+           placeholder-slate-400
+           focus:outline-none
+           transition-all duration-150;
+    border: 1px solid var(--np-border);
+    box-shadow: inset 0 1px 2px 0 rgb(15 23 42 / 0.03);
+  }
+  .np-input:hover:not(:focus) { border-color: #D4CBAA; }
+  .np-input:focus {
+    border-color: var(--np-violet-accent);
+    box-shadow: 0 0 0 3px rgb(74 50 156 / 0.15);
+  }
+
+  .np-skeleton {
+    @apply animate-pulse rounded-xl;
+    background-color: #F1ECDE;
+    background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.6) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: np-shimmer 1.8s ease-in-out infinite;
+  }
+
+  .np-section-label {
+    @apply text-[11px] font-bold uppercase;
+    color: var(--np-text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .np-chip {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold;
+    background: var(--np-border-soft);
+    color: var(--np-text-secondary);
+  }
+
+  .np-progress {
+    @apply w-full h-1.5 rounded-full overflow-hidden;
+    background: var(--np-border-soft);
+  }
+  .np-progress-bar {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
+    background: linear-gradient(90deg, #4F8C10, #65B113);
+  }
+
+  /* Sidebar nav (dark violet) */
+  .np-nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium
+           transition-all duration-[160ms] select-none cursor-pointer relative;
+    letter-spacing: -0.005em;
+    color: var(--np-text-on-dark);
+  }
+  .np-nav-item-active {
+    background: var(--np-bg-sidebar-active);
+    color: var(--np-violet-accent);
+    font-weight: 700;
+  }
+  .np-nav-item-active::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background: var(--np-brand-primary);
+    border-radius: 0 4px 4px 0;
+  }
+  .np-nav-item-inactive { color: var(--np-text-on-dark-muted); }
+  .np-nav-item-inactive:hover {
+    background: var(--np-bg-sidebar-hover);
+    color: var(--np-text-on-dark);
+  }
+
+  .np-section-label-dark {
+    @apply text-[10px] font-bold uppercase;
+    color: rgba(231, 223, 247, 0.45);
+    letter-spacing: 0.10em;
+  }
+
+  .np-tab {
+    @apply flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2
+           transition-all duration-150 -mb-px select-none;
+  }
+  .np-tab-active {
+    border-color: var(--np-brand-primary);
+    color: var(--np-violet-accent);
+  }
+  .np-tab-inactive {
+    @apply border-transparent text-slate-600 hover:text-slate-900;
+  }
+
+  .np-table-head {
+    border-bottom: 1px solid var(--np-border);
+    background: var(--np-border-soft);
+  }
+  .np-table-head th {
+    @apply px-4 py-3 text-left text-xs font-bold;
+    color: var(--np-text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+@layer utilities {
+  @keyframes np-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @keyframes np-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes np-scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .np-animate-fade-in   { animation: np-fade-in 0.22s ease-out both; }
+  .np-animate-scale-in  { animation: np-scale-in 0.18s ease-out both; }
+
+  /* Lime text gradient — used on the brand wordmark inside the dark sidebar
+     (where light lime reads). On white backgrounds use np-text-gradient-dark. */
+  .np-text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #A8E165 0%, #84CC2C 60%, #65B113 100%);
+  }
+  .np-text-gradient-dark {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #3F6E12 0%, #4F8C10 60%, #65B113 100%);
+  }
+
+  .np-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .np-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .np-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+  }
+  .np-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.22);
+  }
+  .np-scrollbar-dark::-webkit-scrollbar { width: 6px; }
+  .np-scrollbar-dark::-webkit-scrollbar-track { background: transparent; }
+  .np-scrollbar-dark::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+  .np-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   WordPress admin embedding — "Nexora panel" framing.
+   Matches Nexora Engine: rounded card with breathing room around
+   the wp-admin chrome, full width retained, sidebar stays sticky.
+   NO overflow:hidden / clip-path on the root (breaks sticky) —
+   children carry their own corner radius.
+   ────────────────────────────────────────────────────────────── */
+#wpbody-content:has(#nexora-media-root) {
+  background: #F1F2F4;
+  padding-bottom: 24px;
+}
+#nexora-media-root {
+  --ncx-panel-margin-top:    16px;
+  --ncx-panel-margin-bottom: 24px;
+  --ncx-panel-radius:        18px;
+  --ncx-panel-h: calc(100vh - 32px - var(--ncx-panel-margin-top) - var(--ncx-panel-margin-bottom));
+
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--np-text-primary);
+  background: var(--np-bg-page);
+  margin: var(--ncx-panel-margin-top) 20px var(--ncx-panel-margin-bottom);
+  border-radius: var(--ncx-panel-radius);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 8px 24px -12px rgb(15 23 42 / 0.10);
+  min-height: var(--ncx-panel-h);
+}
+/* Sidebar → left corners; main → right corners. Plain descendant
+   selectors (NOT :first-child) — first flex child is a fixed-position
+   queue bar, not the aside. */
+#nexora-media-root > div > aside {
+  border-top-left-radius:    var(--ncx-panel-radius);
+  border-bottom-left-radius: var(--ncx-panel-radius);
+}
+#nexora-media-root > div > main {
+  border-top-right-radius:    var(--ncx-panel-radius);
+  border-bottom-right-radius: var(--ncx-panel-radius);
+}
+@media (max-width: 782px) {
+  #nexora-media-root {
+    --ncx-panel-margin-top:    12px;
+    --ncx-panel-margin-bottom: 16px;
+    --ncx-panel-radius:        14px;
+    --ncx-panel-h: calc(100vh - 46px - 12px - 16px);
+    margin: 12px;
+  }
+}
+#nexora-media-root [class*="text-[10px]"] {
+  font-size: 11px !important;
+}
+#nexora-media-root .text-gray-400 {
+  color: #64748B !important;
+}
+#nexora-media-root thead th {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
