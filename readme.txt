@@ -1,4 +1,4 @@
-=== Nexora Media ===
+=== Nexora Media – Image Optimization ===
 Contributors: auralogics
 Tags: webp, image optimization, lazy load, performance, media
 Requires at least: 6.0
