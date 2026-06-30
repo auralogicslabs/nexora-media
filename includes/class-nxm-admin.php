@@ -66,7 +66,7 @@ class NXM_Admin {
             'nxm-settings',
             [ $this, 'render_settings_page' ],
             'none',
-            11
+            58
         );
 
         add_submenu_page(
