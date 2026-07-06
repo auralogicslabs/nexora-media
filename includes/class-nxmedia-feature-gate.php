@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Feature_Gate {
+class NXMEDIA_Feature_Gate {
 
-    private static ?NXM_Feature_Gate $instance = null;
+    private static ?NXMEDIA_Feature_Gate $instance = null;
 
-    public static function get_instance(): NXM_Feature_Gate {
+    public static function get_instance(): NXMEDIA_Feature_Gate {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }

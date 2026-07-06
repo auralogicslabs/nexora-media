@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Engine_Imagick implements NXM_Engine {
+class NXMEDIA_Engine_Imagick implements NXMEDIA_Engine {
 
     public static function is_available(): bool {
         return extension_loaded( 'imagick' ) && class_exists( 'Imagick' );
@@ -33,7 +33,7 @@ class NXM_Engine_Imagick implements NXM_Engine {
             $imagick->setImageFormat( $format );
             $imagick->setImageCompressionQuality( $quality );
             
-            if ( get_option( 'nxm_strip_exif', true ) ) {
+            if ( get_option( 'nxmedia_strip_exif', true ) ) {
                 $imagick->stripImage();
             }
             
@@ -57,7 +57,7 @@ class NXM_Engine_Imagick implements NXM_Engine {
                 $imagick->thumbnailImage( $width, $height, true );
             }
             
-            if ( get_option( 'nxm_strip_exif', true ) ) {
+            if ( get_option( 'nxmedia_strip_exif', true ) ) {
                 $imagick->stripImage();
             }
             

@@ -10,11 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Native_Delivery {
+class NXMEDIA_Native_Delivery {
 
-    private static ?NXM_Native_Delivery $instance = null;
+    private static ?NXMEDIA_Native_Delivery $instance = null;
 
-    public static function get_instance(): NXM_Native_Delivery {
+    public static function get_instance(): NXMEDIA_Native_Delivery {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -23,11 +23,11 @@ class NXM_Native_Delivery {
     }
 
     private function __construct() {
-        if ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) {
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
             return;
         }
 
-        if ( ! get_option( 'nxm_enable_adaptive', false ) || ! get_option( 'nxm_enable_webp', true ) ) {
+        if ( ! get_option( 'nxmedia_enable_adaptive', false ) || ! get_option( 'nxmedia_enable_webp', true ) ) {
             return;
         }
 
@@ -199,11 +199,11 @@ class NXM_Native_Delivery {
             }
         }
 
-        return (bool) apply_filters( 'nxm_native_delivery_skip_img_tag', false, $img );
+        return (bool) apply_filters( 'nxmedia_native_delivery_skip_img_tag', false, $img );
     }
 
     private function is_delivery_disabled( int $attachment_id ): bool {
-        return $attachment_id > 0 && (bool) get_post_meta( $attachment_id, '_nxm_delivery_disabled', true );
+        return $attachment_id > 0 && (bool) get_post_meta( $attachment_id, '_nxmedia_delivery_disabled', true );
     }
 
     private function variant_url_for_url( string $url ): ?string {
@@ -236,7 +236,7 @@ class NXM_Native_Delivery {
         }
 
         /**
-         * Filter: nxm_variant_resolved
+         * Filter: nxmedia_variant_resolved
          *
          * Fires every time Media swaps a source URL for a generated variant.
          * Engine subscribes to learn the source→variant mapping during static
@@ -247,7 +247,7 @@ class NXM_Native_Delivery {
          * @param string $path         Resolved local path of the source.
          * @param string $variant_path Local path of the variant.
          */
-        return (string) apply_filters( 'nxm_variant_resolved', $variant_url, $url, $path, $webp_path );
+        return (string) apply_filters( 'nxmedia_variant_resolved', $variant_url, $url, $path, $webp_path );
     }
 
     private function url_to_local_path( string $url ): ?string {

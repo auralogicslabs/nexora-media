@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_CSS_Optimizer {
+class NXMEDIA_CSS_Optimizer {
 
-    private static ?NXM_CSS_Optimizer $instance = null;
+    private static ?NXMEDIA_CSS_Optimizer $instance = null;
 
-    public static function get_instance(): NXM_CSS_Optimizer {
+    public static function get_instance(): NXMEDIA_CSS_Optimizer {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -19,11 +19,11 @@ class NXM_CSS_Optimizer {
     }
 
     private function __construct() {
-        if ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) {
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
             return;
         }
 
-        if ( ! get_option( 'nxm_enable_css_cache', false ) ) {
+        if ( ! get_option( 'nxmedia_enable_css_cache', false ) ) {
             return;
         }
 
@@ -35,7 +35,7 @@ class NXM_CSS_Optimizer {
     }
 
     public function rewrite_stylesheet_src( string $src, string $handle ): string {
-        if ( ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) || $this->should_defer_to_engine() || empty( $src ) || ! get_option( 'nxm_enable_webp', true ) ) {
+        if ( ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) || $this->should_defer_to_engine() || empty( $src ) || ! get_option( 'nxmedia_enable_webp', true ) ) {
             return $src;
         }
 
@@ -53,7 +53,7 @@ class NXM_CSS_Optimizer {
             return $src;
         }
 
-        $invalidated_at = (int) get_option( 'nxm_css_cache_invalidated_at', 0 );
+        $invalidated_at = (int) get_option( 'nxmedia_css_cache_invalidated_at', 0 );
         if ( ! file_exists( $cache['path'] ) || filemtime( $cache['path'] ) < max( filemtime( $source_path ), $invalidated_at ) ) {
             $this->build_cache_file( $source_path, $src, $cache['path'] );
         }
@@ -74,8 +74,8 @@ class NXM_CSS_Optimizer {
             }
         }
 
-        $enabled = (bool) get_option( 'nxm_enable_css_cache', false );
-        if ( $enabled && class_exists( 'NXM_Init' ) && NXM_Init::is_nexora_engine_active() && ! (bool) get_option( 'nxm_allow_engine_css_cache', false ) ) {
+        $enabled = (bool) get_option( 'nxmedia_enable_css_cache', false );
+        if ( $enabled && class_exists( 'NXMEDIA_Init' ) && NXMEDIA_Init::is_nexora_engine_active() && ! (bool) get_option( 'nxmedia_allow_engine_css_cache', false ) ) {
             $enabled = false;
         }
 
@@ -87,9 +87,9 @@ class NXM_CSS_Optimizer {
     }
 
     public static function purge_cache(): int {
-        update_option( 'nxm_css_cache_purged_at', time(), false );
-        update_option( 'nxm_css_cache_invalidated_at', time(), false );
-        do_action( 'nxm_css_cache_purged' );
+        update_option( 'nxmedia_css_cache_purged_at', time(), false );
+        update_option( 'nxmedia_css_cache_invalidated_at', time(), false );
+        do_action( 'nxmedia_css_cache_purged' );
 
         // Preserve existing files because static mirrors may still reference
         // them. Cache files rebuild in place on the next live render/capture.
@@ -132,7 +132,7 @@ class NXM_CSS_Optimizer {
         }
 
         if ( $repaired > 0 ) {
-            update_option( 'nxm_css_cache_repaired_at', time(), false );
+            update_option( 'nxmedia_css_cache_repaired_at', time(), false );
         }
 
         return $repaired;
@@ -174,15 +174,15 @@ class NXM_CSS_Optimizer {
 
         wp_mkdir_p( dirname( $target_path ) );
         if ( false !== file_put_contents( $target_path, $rewritten, LOCK_EX ) ) {
-            update_option( 'nxm_css_cache_updated_at', time(), false );
-            do_action( 'nxm_css_cache_updated', $target_path );
+            update_option( 'nxmedia_css_cache_updated_at', time(), false );
+            do_action( 'nxmedia_css_cache_updated', $target_path );
         }
     }
 
     private function should_defer_to_engine(): bool {
-        return class_exists( 'NXM_Init' )
-            && NXM_Init::is_nexora_engine_active()
-            && ! (bool) get_option( 'nxm_allow_engine_css_cache', false );
+        return class_exists( 'NXMEDIA_Init' )
+            && NXMEDIA_Init::is_nexora_engine_active()
+            && ! (bool) get_option( 'nxmedia_allow_engine_css_cache', false );
     }
 
     private function cache_target( string $src, string $source_path ): ?array {
@@ -276,7 +276,7 @@ class NXM_CSS_Optimizer {
 
     private function webp_variant_url( string $url ): ?string {
         $attachment_id = attachment_url_to_postid( $url );
-        if ( $attachment_id && get_post_meta( $attachment_id, '_nxm_delivery_disabled', true ) ) {
+        if ( $attachment_id && get_post_meta( $attachment_id, '_nxmedia_delivery_disabled', true ) ) {
             return null;
         }
 

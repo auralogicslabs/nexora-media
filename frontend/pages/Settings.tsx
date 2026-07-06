@@ -59,16 +59,16 @@ export default function Settings() {
             <input
               type="number" min={1} max={100}
               className="np-input max-w-[140px]"
-              value={form.nxm_quality ?? 82}
-              onChange={(e) => setForm({ ...form, nxm_quality: Number(e.target.value) })}
+              value={form.nxmedia_quality ?? 82}
+              onChange={(e) => setForm({ ...form, nxmedia_quality: Number(e.target.value) })}
             />
           </Field>
           <Field label="Maximum image width" help="Source images larger than this are scaled down before encoding.">
             <input
               type="number" min={320} max={6000}
               className="np-input max-w-[160px]"
-              value={form.nxm_max_width ?? 2560}
-              onChange={(e) => setForm({ ...form, nxm_max_width: Number(e.target.value) })}
+              value={form.nxmedia_max_width ?? 2560}
+              onChange={(e) => setForm({ ...form, nxmedia_max_width: Number(e.target.value) })}
             />
           </Field>
           <Field
@@ -77,8 +77,8 @@ export default function Settings() {
           >
             <input
               className="np-input font-mono text-xs"
-              value={form.nxm_responsive_widths ?? '320,640,960,1600'}
-              onChange={(e) => setForm({ ...form, nxm_responsive_widths: e.target.value })}
+              value={form.nxmedia_responsive_widths ?? '320,640,960,1600'}
+              onChange={(e) => setForm({ ...form, nxmedia_responsive_widths: e.target.value })}
             />
           </Field>
         </div>
@@ -88,14 +88,14 @@ export default function Settings() {
           <Toggle
             label="Background queue"
             help="Process images in safe batches instead of on upload."
-            checked={!!form.nxm_enable_queue}
-            onChange={(v) => setForm({ ...form, nxm_enable_queue: v })}
+            checked={!!form.nxmedia_enable_queue}
+            onChange={(v) => setForm({ ...form, nxmedia_enable_queue: v })}
           />
           <Toggle
             label="Auto-process via WP-Cron"
             help="Run the queue automatically. Off keeps everything manual + safer."
-            checked={!!form.nxm_auto_process_queue}
-            onChange={(v) => setForm({ ...form, nxm_auto_process_queue: v })}
+            checked={!!form.nxmedia_auto_process_queue}
+            onChange={(v) => setForm({ ...form, nxmedia_auto_process_queue: v })}
           />
         </div>
 

@@ -9,21 +9,21 @@
  * goes wrong and recover gracefully without user intervention.
  *
  * Storage:
- *   nxm_recent_errors    — option, array of last 10 errors (newest first)
- *   nxm_total_failed     — option, lifetime failure counter (already maintained by NXM_Queue)
- *   nxm_last_run_at      — option, microtime of last successful image processed
- *   nxm_queue_lock       — transient, owned by NXM_Queue (we only read it)
- *   _nxm_skip_until      — post meta on attachment, unix ts; queue skips until reached
- *   _nxm_failure_count   — post meta on attachment, int; resets when image succeeds
+ *   nxmedia_recent_errors    — option, array of last 10 errors (newest first)
+ *   nxmedia_total_failed     — option, lifetime failure counter (already maintained by NXMEDIA_Queue)
+ *   nxmedia_last_run_at      — option, microtime of last successful image processed
+ *   nxmedia_queue_lock       — transient, owned by NXMEDIA_Queue (we only read it)
+ *   _nxmedia_skip_until      — post meta on attachment, unix ts; queue skips until reached
+ *   _nxmedia_failure_count   — post meta on attachment, int; resets when image succeeds
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class NXM_Queue_Health {
+class NXMEDIA_Queue_Health {
 
-	private static ?NXM_Queue_Health $instance = null;
+	private static ?NXMEDIA_Queue_Health $instance = null;
 
 	/** Lock older than this is considered stale (no worker progress). */
 	private const STALE_LOCK_SECONDS = 5 * MINUTE_IN_SECONDS;
@@ -37,7 +37,7 @@ class NXM_Queue_Health {
 	/** Cooldown window (seconds) once an attachment hits the failure threshold. */
 	private const FAILURE_COOLDOWN_WINDOW = 24 * HOUR_IN_SECONDS;
 
-	public static function get_instance(): NXM_Queue_Health {
+	public static function get_instance(): NXMEDIA_Queue_Health {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
@@ -54,7 +54,7 @@ class NXM_Queue_Health {
 	// ──────────────────────────────────────────────────────────────
 
 	/**
-	 * Record an error. Called from NXM_Queue when an attachment fails or the worker
+	 * Record an error. Called from NXMEDIA_Queue when an attachment fails or the worker
 	 * encounters a fatal condition. Safe to call frequently — older entries are pruned.
 	 *
 	 * @param string $code            Short identifier (e.g. 'webp_encode_failed').
@@ -72,17 +72,17 @@ class NXM_Queue_Health {
 			'time'          => time(),
 		] );
 		$entries = array_slice( $entries, 0, self::MAX_LOG_ENTRIES );
-		update_option( 'nxm_recent_errors', $entries, false );
+		update_option( 'nxmedia_recent_errors', $entries, false );
 
 		if ( $attachment_id > 0 ) {
-			$count = (int) get_post_meta( $attachment_id, '_nxm_failure_count', true );
+			$count = (int) get_post_meta( $attachment_id, '_nxmedia_failure_count', true );
 			$count++;
-			update_post_meta( $attachment_id, '_nxm_failure_count', $count );
+			update_post_meta( $attachment_id, '_nxmedia_failure_count', $count );
 
 			if ( $count >= self::FAILURE_COOLDOWN_THRESHOLD ) {
 				// Pause this image so it doesn't block the queue forever. The user
 				// can see it in Diagnostic and decide what to do.
-				update_post_meta( $attachment_id, '_nxm_skip_until', time() + self::FAILURE_COOLDOWN_WINDOW );
+				update_post_meta( $attachment_id, '_nxmedia_skip_until', time() + self::FAILURE_COOLDOWN_WINDOW );
 			}
 		}
 	}
@@ -90,35 +90,35 @@ class NXM_Queue_Health {
 	/** Called when an attachment succeeds — clear cooldown and failure history. */
 	public function record_success( int $attachment_id ): void {
 		if ( $attachment_id > 0 ) {
-			delete_post_meta( $attachment_id, '_nxm_failure_count' );
-			delete_post_meta( $attachment_id, '_nxm_skip_until' );
+			delete_post_meta( $attachment_id, '_nxmedia_failure_count' );
+			delete_post_meta( $attachment_id, '_nxmedia_skip_until' );
 		}
-		update_option( 'nxm_last_run_at', microtime( true ), false );
+		update_option( 'nxmedia_last_run_at', microtime( true ), false );
 	}
 
 	/** Should the queue skip this attachment (cooldown active)? */
 	public function should_skip_attachment( int $attachment_id ): bool {
-		$skip_until = (int) get_post_meta( $attachment_id, '_nxm_skip_until', true );
+		$skip_until = (int) get_post_meta( $attachment_id, '_nxmedia_skip_until', true );
 		return $skip_until > 0 && $skip_until > time();
 	}
 
 	/** Clear the failure log + per-image cooldowns. Used by "Recover" UI. */
 	public function reset_failures(): void {
-		delete_option( 'nxm_recent_errors' );
-		delete_transient( 'nxm_queue_lock' );
+		delete_option( 'nxmedia_recent_errors' );
+		delete_transient( 'nxmedia_queue_lock' );
 
 		// Clear per-image cooldown so the queue can retry everything next run.
 		// We do this in one direct query because there could be many rows.
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete( $wpdb->postmeta, [ 'meta_key' => '_nxm_skip_until' ] );
-		$wpdb->delete( $wpdb->postmeta, [ 'meta_key' => '_nxm_failure_count' ] );
+		$wpdb->delete( $wpdb->postmeta, [ 'meta_key' => '_nxmedia_skip_until' ] );
+		$wpdb->delete( $wpdb->postmeta, [ 'meta_key' => '_nxmedia_failure_count' ] );
 		// phpcs:enable
 	}
 
 	/** Get the persistent error log (newest first). */
 	public function get_errors(): array {
-		$entries = get_option( 'nxm_recent_errors', [] );
+		$entries = get_option( 'nxmedia_recent_errors', [] );
 		return is_array( $entries ) ? $entries : [];
 	}
 
@@ -215,7 +215,7 @@ class NXM_Queue_Health {
 	// ──────────────────────────────────────────────────────────────
 
 	private function detect_stale_lock(): array {
-		$lock = get_transient( 'nxm_queue_lock' );
+		$lock = get_transient( 'nxmedia_queue_lock' );
 		if ( ! $lock ) {
 			return [ 'stale' => false, 'age' => 0 ];
 		}
@@ -227,12 +227,12 @@ class NXM_Queue_Health {
 	}
 
 	private function cron_health(): array {
-		$auto = (bool) get_option( 'nxm_auto_process_queue', false );
+		$auto = (bool) get_option( 'nxmedia_auto_process_queue', false );
 		if ( ! $auto ) {
 			// Manual mode — cron isn't expected to run. Treat as healthy.
 			return [ 'healthy' => true, 'next_run' => null ];
 		}
-		$next = wp_next_scheduled( 'nxm_process_queue_event' );
+		$next = wp_next_scheduled( 'nxmedia_process_queue_event' );
 		if ( ! $next ) {
 			return [ 'healthy' => false, 'next_run' => null ];
 		}

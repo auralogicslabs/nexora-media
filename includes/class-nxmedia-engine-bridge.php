@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Engine_Bridge {
+class NXMEDIA_Engine_Bridge {
 
-    private static ?NXM_Engine_Bridge $instance = null;
+    private static ?NXMEDIA_Engine_Bridge $instance = null;
 
-    public static function get_instance(): NXM_Engine_Bridge {
+    public static function get_instance(): NXMEDIA_Engine_Bridge {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -19,9 +19,9 @@ class NXM_Engine_Bridge {
     }
 
     private function __construct() {
-        add_action( 'nxm_css_cache_updated', [ $this, 'notify_media_runtime_changed' ] );
-        add_action( 'nxm_css_cache_purged', [ $this, 'notify_media_runtime_changed' ] );
-        add_action( 'nxm_media_delivery_mode_changed', [ $this, 'notify_media_runtime_changed' ] );
+        add_action( 'nxmedia_css_cache_updated', [ $this, 'notify_media_runtime_changed' ] );
+        add_action( 'nxmedia_css_cache_purged', [ $this, 'notify_media_runtime_changed' ] );
+        add_action( 'nxmedia_media_delivery_mode_changed', [ $this, 'notify_media_runtime_changed' ] );
     }
 
     /**
@@ -33,14 +33,14 @@ class NXM_Engine_Bridge {
             return;
         }
 
-        do_action( 'nxm_engine_integration_before_refresh' );
+        do_action( 'nxmedia_engine_integration_before_refresh' );
 
         // Never purge Nexora Engine static files from the media plugin. Media
         // queues can be large; deleting mirrors or forcing builds here would
         // surprise live sites. Expose only a signal for pending notices or
         // future targeted rebuild suggestions.
-        update_option( 'nxm_engine_media_changed_at', time(), false );
-        do_action( 'nxm_engine_media_variants_updated' );
+        update_option( 'nxmedia_engine_media_changed_at', time(), false );
+        do_action( 'nxmedia_engine_media_variants_updated' );
     }
 
     public function notify_media_runtime_changed(): void {
@@ -48,13 +48,13 @@ class NXM_Engine_Bridge {
             return;
         }
 
-        update_option( 'nxm_engine_media_changed_at', time(), false );
+        update_option( 'nxmedia_engine_media_changed_at', time(), false );
         if ( class_exists( 'NCX_SSG' ) && method_exists( 'NCX_SSG', 'is_enabled' ) && NCX_SSG::is_enabled() ) {
             $ssg = NCX_SSG::get_instance();
             if ( method_exists( $ssg, 'schedule_global_invalidate' ) ) {
                 $ssg->schedule_global_invalidate();
             }
         }
-        do_action( 'nxm_engine_media_runtime_updated' );
+        do_action( 'nxmedia_engine_media_runtime_updated' );
     }
 }

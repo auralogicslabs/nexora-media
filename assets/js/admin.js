@@ -72,7 +72,7 @@
                 }
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_save_option',
+                    action: 'nxmedia_save_option',
                     nonce: nxmAdmin.nonce,
                     option: $input.data('option'),
                     value: enabled
@@ -95,7 +95,7 @@
                 window.clearTimeout(saveTimer);
                 saveTimer = window.setTimeout(function () {
                     $.post(nxmAdmin.ajax_url, {
-                        action: 'nxm_save_option',
+                        action: 'nxmedia_save_option',
                         nonce: nxmAdmin.nonce,
                         option: $input.data('option'),
                         value: $input.val()
@@ -129,7 +129,7 @@
                 NXM.setStatus('Scanning the media library and adding images to the optimization queue...', 'info');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_queue_all',
+                    action: 'nxmedia_queue_all',
                     nonce: nxmAdmin.nonce
                 }, function (res) {
                     if (res.success) {
@@ -167,7 +167,7 @@
                 NXM.setStatus('Stopping optimization and clearing the current queue...', 'info');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_stop_queue',
+                    action: 'nxmedia_stop_queue',
                     nonce: nxmAdmin.nonce
                 }, function (res) {
                     $btn.prop('disabled', false).text('Stop');
@@ -212,7 +212,7 @@
                     method: 'POST',
                     timeout: 30000,
                     data: {
-                    action: 'nxm_optimize_attachment',
+                    action: 'nxmedia_optimize_attachment',
                     nonce: nxmAdmin.nonce,
                     attachment_id: id
                     }
@@ -268,7 +268,7 @@
                 NXM.setStatus('Syncing optimized delivery with the public frontend...', 'info');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_sync_attachment',
+                    action: 'nxmedia_sync_attachment',
                     nonce: nxmAdmin.nonce,
                     attachment_id: id
                 }, function (res) {
@@ -302,7 +302,7 @@
                 NXM.setStatus('Updating image delivery mode...', 'info');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_toggle_delivery_mode',
+                    action: 'nxmedia_toggle_delivery_mode',
                     nonce: nxmAdmin.nonce,
                     attachment_id: id
                 }, function (res) {
@@ -342,7 +342,7 @@
                 $btn.prop('disabled', true).text(startBuild ? 'Preparing...' : 'Applying...');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_complete_wizard',
+                    action: 'nxmedia_complete_wizard',
                     nonce: nxmAdmin.nonce,
                     apply_recommended: 1
                 }, function (res) {
@@ -374,7 +374,7 @@
                 NXM.setStatus('Purging CSS Optimization Cache...', 'info');
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_purge_css_cache',
+                    action: 'nxmedia_purge_css_cache',
                     nonce: nxmAdmin.nonce
                 }, function (res) {
                     $btn.prop('disabled', false).text('Purge CSS Cache');
@@ -398,7 +398,7 @@
                 NXM.setStatus('Running image engine diagnostic...', 'info', false);
 
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_diagnostic',
+                    action: 'nxmedia_diagnostic',
                     nonce: nxmAdmin.nonce
                 }, function (res) {
                     $btn.prop('disabled', false).text(originalText);
@@ -495,7 +495,7 @@
                 method: 'POST',
                 timeout: 120000,
                 data: {
-                    action: 'nxm_async_process',
+                    action: 'nxmedia_async_process',
                     nonce: nxmAdmin.nonce
                 }
             }).done(function (res) {
@@ -560,7 +560,7 @@
 
             const poll = function () {
                 $.post(nxmAdmin.ajax_url, {
-                    action: 'nxm_queue_status',
+                    action: 'nxmedia_queue_status',
                     nonce: nxmAdmin.nonce
                 }, function (res) {
                     if (!res.success) {

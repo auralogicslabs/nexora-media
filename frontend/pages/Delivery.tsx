@@ -86,38 +86,38 @@ export default function Delivery() {
             label="WebP generation"
             help="Build .webp variants alongside your original images."
             disabled={!supported}
-            checked={!!s.nxm_enable_webp}
-            onChange={(v) => save.mutate({ nxm_enable_webp: v })}
+            checked={!!s.nxmedia_enable_webp}
+            onChange={(v) => save.mutate({ nxmedia_enable_webp: v })}
             note={!supported ? 'WebP not supported on this server' : undefined}
           />
 
           <Toggle
             label="Adaptive delivery"
             help="Swap WordPress image URLs for the generated WebP for logged-out visitors. Handles src, srcset, and content images automatically."
-            checked={!!s.nxm_enable_adaptive}
-            onChange={(v) => save.mutate({ nxm_enable_adaptive: v })}
+            checked={!!s.nxmedia_enable_adaptive}
+            onChange={(v) => save.mutate({ nxmedia_enable_adaptive: v })}
           />
 
           <Toggle
             label="Lazy loading"
             help="Add loading=lazy + decoding=async for faster initial page paints. Respects hero images marked fetchpriority=high."
-            checked={!!s.nxm_enable_lazyload}
-            onChange={(v) => save.mutate({ nxm_enable_lazyload: v })}
+            checked={!!s.nxmedia_enable_lazyload}
+            onChange={(v) => save.mutate({ nxmedia_enable_lazyload: v })}
           />
 
           <Toggle
             label="EXIF stripping"
             help="Remove camera and location metadata from generated variants."
-            checked={!!s.nxm_strip_exif}
-            onChange={(v) => save.mutate({ nxm_strip_exif: v })}
+            checked={!!s.nxmedia_strip_exif}
+            onChange={(v) => save.mutate({ nxmedia_strip_exif: v })}
           />
 
           <Toggle
             label="AVIF generation"
             help="Build .avif variants when supported. Smaller files but slower to encode."
             badge="Experimental"
-            checked={!!s.nxm_enable_avif}
-            onChange={(v) => save.mutate({ nxm_enable_avif: v })}
+            checked={!!s.nxmedia_enable_avif}
+            onChange={(v) => save.mutate({ nxmedia_enable_avif: v })}
           />
         </div>
 
@@ -161,16 +161,16 @@ export default function Delivery() {
             label="CSS URL rewriting"
             help="Rewrite image URLs inside CSS files so background images load WebP. Adds a small cache layer in uploads."
             badge="Advanced"
-            checked={!!s.nxm_enable_css_cache}
-            onChange={(v) => save.mutate({ nxm_enable_css_cache: v })}
+            checked={!!s.nxmedia_enable_css_cache}
+            onChange={(v) => save.mutate({ nxmedia_enable_css_cache: v })}
           />
 
           <Toggle
             label="Full DOM rewriting"
             help={'Aggressively rewrites inline style="background:url()" attributes during page render. Only needed if Adaptive Delivery + CSS rewriting aren\'t enough.'}
             badge="Experimental"
-            checked={!!s.nxm_enable_dom_rewrite}
-            onChange={(v) => save.mutate({ nxm_enable_dom_rewrite: v })}
+            checked={!!s.nxmedia_enable_dom_rewrite}
+            onChange={(v) => save.mutate({ nxmedia_enable_dom_rewrite: v })}
           />
 
           <div className="pt-2 border-t border-cream-200">

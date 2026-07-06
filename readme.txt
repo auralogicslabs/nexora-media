@@ -4,7 +4,7 @@ Tags: webp, image optimization, lazy load, performance, media
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -122,7 +122,28 @@ Deactivate and delete the plugin from the Plugins screen. Nexora Media removes a
 5. Roadmap — what we're building next and what we're researching, all in the open
 6. Diagnostic — server capabilities, queue health, and the structured error log
 
+== Source code & development ==
+
+Nexora Media is fully open. The admin interface is a React + TypeScript application; the human-readable source lives in the `frontend/` directory that ships inside the plugin, and it is compiled with Vite to `assets/dist/nexora-media.js`. Nothing is obfuscated or minified beyond a standard production build.
+
+The complete, unminified source — including the React/TypeScript admin UI and build instructions — is publicly available at:
+
+https://github.com/auralogicslabs/nexora-media
+
+To reproduce the compiled bundle from source (see BUILD.md in the repository for full details):
+
+`npm install`
+`npm run build`
+
+This runs Vite (`vite.config.ts`) over the `frontend/` sources and writes the bundle to `assets/dist/`. Node.js 18+ and npm 9+ are required. The plugin runs entirely from the built output at runtime; `node_modules/` is a development dependency only and is not shipped.
+
 == Changelog ==
+
+= 1.0.1 =
+* Namespaced all internal data (options, meta, hooks, AJAX actions) under a longer, more distinctive prefix to avoid any chance of collisions with other plugins. Existing settings are migrated automatically on update.
+* Hardened REST and AJAX endpoints with per-attachment capability checks.
+* Explicitly paired the frontend delivery output buffer with its close for predictable behaviour in shared environments.
+* Documented the public source repository and build steps in the readme.
 
 = 1.0.0 =
 First public release of Nexora Media.

@@ -7,11 +7,20 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Html_Rewriter {
+class NXMEDIA_Html_Rewriter {
 
-    private static ?NXM_Html_Rewriter $instance = null;
+    private static ?NXMEDIA_Html_Rewriter $instance = null;
 
-    public static function get_instance(): NXM_Html_Rewriter {
+    /**
+     * Output-buffer nesting level captured at the moment we call ob_start(),
+     * so shutdown can flush exactly the buffer we opened and nothing else.
+     * -1 means "no buffer opened by us".
+     *
+     * @var int
+     */
+    private int $buffer_level = -1;
+
+    public static function get_instance(): NXMEDIA_Html_Rewriter {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -19,11 +28,11 @@ class NXM_Html_Rewriter {
     }
 
     private function __construct() {
-        if ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) {
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
             return;
         }
 
-        if ( ! get_option( 'nxm_enable_adaptive', false ) ) {
+        if ( ! get_option( 'nxmedia_enable_adaptive', false ) ) {
             return;
         }
 
@@ -36,7 +45,7 @@ class NXM_Html_Rewriter {
 
         add_filter( 'the_content', [ $this, 'rewrite_content' ], 999 );
 
-        if ( get_option( 'nxm_enable_dom_rewrite', false ) ) {
+        if ( get_option( 'nxmedia_enable_dom_rewrite', false ) ) {
             add_action( 'template_redirect', [ $this, 'start_buffer' ], 1 );
         }
     }
@@ -53,25 +62,51 @@ class NXM_Html_Rewriter {
         /**
          * Filter: should Nexora Engine handle inline-CSS image rewriting?
          *
-         * Engine should add_filter('nxm_engine_handles_inline_css','__return_true')
+         * Engine should add_filter('nxmedia_engine_handles_inline_css','__return_true')
          * when its SSG rewriter is wired up. Site owners can override either way.
          */
-        return (bool) apply_filters( 'nxm_engine_handles_inline_css', $auto );
+        return (bool) apply_filters( 'nxmedia_engine_handles_inline_css', $auto );
     }
 
     public function start_buffer(): void {
-        if ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) {
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
             return;
         }
 
         ob_start( [ $this, 'rewrite_content' ] );
+
+        // Pair the buffer with an explicit close. We record the level we opened
+        // at and flush exactly that buffer on shutdown, rather than relying on
+        // PHP's implicit end-of-request flush. This keeps our open/close inside
+        // one controlled flow and avoids leaving the shared buffer stack in an
+        // ambiguous state for other plugins/themes.
+        $this->buffer_level = ob_get_level();
+        add_action( 'shutdown', [ $this, 'end_buffer' ], 0 );
+    }
+
+    /**
+     * Explicitly flushes the output buffer opened in start_buffer(). Only acts
+     * on the buffer at (or above) the level we opened, and never touches buffers
+     * owned by other code lower in the stack.
+     */
+    public function end_buffer(): void {
+        if ( $this->buffer_level < 1 ) {
+            return;
+        }
+        // Flush down to (and including) the buffer we opened. Guarded by the
+        // level check so nested buffers opened by other components after ours
+        // are also closed in order, but we never over-flush past our own.
+        while ( ob_get_level() >= $this->buffer_level ) {
+            ob_end_flush();
+        }
+        $this->buffer_level = -1;
     }
 
     /**
      * Finds <img> tags and wraps them in <picture> with AVIF/WebP sources.
      */
     public function rewrite_content( string $content ): string {
-        if ( class_exists( 'NXM_Init' ) && ! NXM_Init::is_frontend_delivery_request() ) {
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
             return $content;
         }
 
@@ -84,8 +119,8 @@ class NXM_Html_Rewriter {
             return $content;
         }
 
-        $avif_enabled = get_option( 'nxm_enable_avif', true ) && NXM_Feature_Gate::can_use( 'avif_generation' );
-        $webp_enabled = get_option( 'nxm_enable_webp', true );
+        $avif_enabled = get_option( 'nxmedia_enable_avif', true ) && NXMEDIA_Feature_Gate::can_use( 'avif_generation' );
+        $webp_enabled = get_option( 'nxmedia_enable_webp', true );
 
         if ( ! $avif_enabled && ! $webp_enabled ) {
             return $content;
@@ -202,7 +237,7 @@ class NXM_Html_Rewriter {
             }
         }
 
-        return (bool) apply_filters( 'nxm_skip_adaptive_builder_markup', false, $content );
+        return (bool) apply_filters( 'nxmedia_skip_adaptive_builder_markup', false, $content );
     }
 
     private function should_leave_img_tag_untouched( string $img_tag ): bool {
@@ -235,7 +270,7 @@ class NXM_Html_Rewriter {
             }
         }
 
-        return (bool) apply_filters( 'nxm_skip_adaptive_img_tag', false, $img_tag );
+        return (bool) apply_filters( 'nxmedia_skip_adaptive_img_tag', false, $img_tag );
     }
 
     private function generate_variant_srcset( string $original_srcset, string $format ): string {
@@ -293,11 +328,11 @@ class NXM_Html_Rewriter {
 
     private function get_variant_url_for_image_url( string $url, string $format ): ?string {
         $attachment_id = attachment_url_to_postid( $url );
-        if ( $attachment_id && get_post_meta( $attachment_id, '_nxm_delivery_disabled', true ) ) {
+        if ( $attachment_id && get_post_meta( $attachment_id, '_nxmedia_delivery_disabled', true ) ) {
             return null;
         }
 
-        $variants      = $attachment_id ? get_post_meta( $attachment_id, '_nxm_variants', true ) : [];
+        $variants      = $attachment_id ? get_post_meta( $attachment_id, '_nxmedia_variants', true ) : [];
 
         if ( is_array( $variants ) && ! empty( $variants['original'][ $format ] ) ) {
             $variant_url = $this->path_to_url( $variants['original'][ $format ] );
@@ -324,7 +359,7 @@ class NXM_Html_Rewriter {
     private function prepare_img_tag( string $img_tag ): string {
         $is_priority_image = stripos( $img_tag, 'fetchpriority="high"' ) !== false || stripos( $img_tag, "fetchpriority='high'" ) !== false;
 
-        if ( get_option( 'nxm_enable_lazyload', true ) && ! $is_priority_image && stripos( $img_tag, ' loading=' ) === false ) {
+        if ( get_option( 'nxmedia_enable_lazyload', true ) && ! $is_priority_image && stripos( $img_tag, ' loading=' ) === false ) {
             $img_tag = preg_replace( '/<img/i', '<img loading="lazy"', $img_tag, 1 );
         }
         if ( stripos( $img_tag, ' decoding=' ) === false ) {

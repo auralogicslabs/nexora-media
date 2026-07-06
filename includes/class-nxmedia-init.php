@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Init {
+class NXMEDIA_Init {
 
-    private static ?NXM_Init $instance = null;
+    private static ?NXMEDIA_Init $instance = null;
 
-    public static function get_instance(): NXM_Init {
+    public static function get_instance(): NXMEDIA_Init {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -30,8 +30,8 @@ class NXM_Init {
         }
 
         // REST API — always registered, gated by capability checks per route.
-        if ( class_exists( 'NXM_REST' ) ) {
-            NXM_REST::get_instance();
+        if ( class_exists( 'NXMEDIA_REST' ) ) {
+            NXMEDIA_REST::get_instance();
         }
 
         // Detect Ecosystem
@@ -39,17 +39,17 @@ class NXM_Init {
     }
 
     public function register_image_sizes(): void {
-        if ( ! get_option( 'nxm_enable_responsive_variants', false ) ) {
+        if ( ! get_option( 'nxmedia_enable_responsive_variants', false ) ) {
             return;
         }
 
-        foreach ( NXM_Image_Processor::responsive_widths() as $width ) {
+        foreach ( NXMEDIA_Image_Processor::responsive_widths() as $width ) {
             add_image_size( 'nxm-' . $width . 'w', $width, 0, false );
         }
     }
 
     public function big_image_threshold( $threshold ): int {
-        $max_width = (int) get_option( 'nxm_max_width', 2560 );
+        $max_width = (int) get_option( 'nxmedia_max_width', 2560 );
         return max( 1024, min( 6000, $max_width ) );
     }
 
@@ -58,40 +58,40 @@ class NXM_Init {
         // plugins since WP 4.6, so no manual load_plugin_textdomain() is needed.
 
         // Native delivery swaps eligible WordPress attachment image URLs only.
-        if ( self::is_frontend_delivery_request() && class_exists( 'NXM_Native_Delivery' ) ) {
-            NXM_Native_Delivery::get_instance();
+        if ( self::is_frontend_delivery_request() && class_exists( 'NXMEDIA_Native_Delivery' ) ) {
+            NXMEDIA_Native_Delivery::get_instance();
         }
 
         // Full DOM rewriting is retained as an explicit advanced/experimental path only.
-        if ( self::is_frontend_delivery_request() && get_option( 'nxm_enable_dom_rewrite', false ) && class_exists( 'NXM_Html_Rewriter' ) ) {
-            NXM_Html_Rewriter::get_instance();
+        if ( self::is_frontend_delivery_request() && get_option( 'nxmedia_enable_dom_rewrite', false ) && class_exists( 'NXMEDIA_Html_Rewriter' ) ) {
+            NXMEDIA_Html_Rewriter::get_instance();
         }
 
-        if ( self::is_frontend_delivery_request() && class_exists( 'NXM_CSS_Optimizer' ) ) {
-            NXM_CSS_Optimizer::get_instance();
+        if ( self::is_frontend_delivery_request() && class_exists( 'NXMEDIA_CSS_Optimizer' ) ) {
+            NXMEDIA_CSS_Optimizer::get_instance();
         }
         
         // Initialize Background Queue
-        if ( class_exists( 'NXM_Queue' ) ) {
-            NXM_Queue::get_instance();
+        if ( class_exists( 'NXMEDIA_Queue' ) ) {
+            NXMEDIA_Queue::get_instance();
         }
     }
 
     public function register_admin(): void {
-        if ( class_exists( 'NXM_Admin' ) ) {
-            NXM_Admin::get_instance();
+        if ( class_exists( 'NXMEDIA_Admin' ) ) {
+            NXMEDIA_Admin::get_instance();
         }
     }
 
     private function detect_ecosystem(): void {
         // Detect Nexora Engine
         if ( self::is_nexora_engine_active() ) {
-            if ( class_exists( 'NXM_Engine_Bridge' ) ) {
-                NXM_Engine_Bridge::get_instance();
-                $notified_version = (string) get_option( 'nxm_native_delivery_engine_notified_version', '' );
-                if ( get_option( 'nxm_enable_adaptive', false ) && get_option( 'nxm_enable_webp', true ) && NXM_VERSION !== $notified_version ) {
-                    NXM_Engine_Bridge::get_instance()->notify_media_runtime_changed();
-                    update_option( 'nxm_native_delivery_engine_notified_version', NXM_VERSION, false );
+            if ( class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+                NXMEDIA_Engine_Bridge::get_instance();
+                $notified_version = (string) get_option( 'nxmedia_native_delivery_engine_notified_version', '' );
+                if ( get_option( 'nxmedia_enable_adaptive', false ) && get_option( 'nxmedia_enable_webp', true ) && NXMEDIA_VERSION !== $notified_version ) {
+                    NXMEDIA_Engine_Bridge::get_instance()->notify_media_runtime_changed();
+                    update_option( 'nxmedia_native_delivery_engine_notified_version', NXMEDIA_VERSION, false );
                 }
             }
         }

@@ -7,23 +7,23 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-$queue_enabled        = (bool) get_option( 'nxm_enable_queue', true );
-$auto_process_enabled = (bool) get_option( 'nxm_auto_process_queue', false );
-$processing_paused    = (bool) get_option( 'nxm_processing_paused', false );
-$webp_enabled         = (bool) get_option( 'nxm_enable_webp', true );
-$adaptive_enabled     = (bool) get_option( 'nxm_enable_adaptive', false );
-$lazy_enabled         = (bool) get_option( 'nxm_enable_lazyload', true );
-$strip_exif           = (bool) get_option( 'nxm_strip_exif', true );
-$quality              = (int) get_option( 'nxm_quality', 82 );
-$max_width            = (int) get_option( 'nxm_max_width', 2560 );
-$processor            = NXM_Image_Processor::get_instance();
-$queue_status         = NXM_Queue::get_instance()->queue_status();
-$engine_active        = class_exists( 'NXM_Init' ) && NXM_Init::is_nexora_engine_active();
+$queue_enabled        = (bool) get_option( 'nxmedia_enable_queue', true );
+$auto_process_enabled = (bool) get_option( 'nxmedia_auto_process_queue', false );
+$processing_paused    = (bool) get_option( 'nxmedia_processing_paused', false );
+$webp_enabled         = (bool) get_option( 'nxmedia_enable_webp', true );
+$adaptive_enabled     = (bool) get_option( 'nxmedia_enable_adaptive', false );
+$lazy_enabled         = (bool) get_option( 'nxmedia_enable_lazyload', true );
+$strip_exif           = (bool) get_option( 'nxmedia_strip_exif', true );
+$quality              = (int) get_option( 'nxmedia_quality', 82 );
+$max_width            = (int) get_option( 'nxmedia_max_width', 2560 );
+$processor            = NXMEDIA_Image_Processor::get_instance();
+$queue_status         = NXMEDIA_Queue::get_instance()->queue_status();
+$engine_active        = class_exists( 'NXMEDIA_Init' ) && NXMEDIA_Init::is_nexora_engine_active();
 $webp_supported       = $processor->supports( 'webp' );
-$admin                = NXM_Admin::get_instance();
+$admin                = NXMEDIA_Admin::get_instance();
 $media_items          = $admin->get_media_inventory( 30 );
 $media_summary        = $admin->get_media_summary();
-$wizard_complete      = (bool) get_option( 'nxm_wizard_complete', false );
+$wizard_complete      = (bool) get_option( 'nxmedia_wizard_complete', false );
 
 $image_query = new WP_Query( [
     'post_type'      => 'attachment',
@@ -119,7 +119,7 @@ $server_cards       = [
                 <div class="nxm-topbar-pills">
                     <span><?php echo esc_html( $processing_mode ); ?></span>
                     <span><?php echo esc_html( $delivery_ready ? __( 'Public WebP active', 'nexora-media' ) : __( 'Safe delivery mode', 'nexora-media' ) ); ?></span>
-                    <span><?php echo esc_html( 'v' . NXM_VERSION ); ?></span>
+                    <span><?php echo esc_html( 'v' . NXMEDIA_VERSION ); ?></span>
                 </div>
             </div>
             <div class="nxm-hero">
@@ -145,7 +145,7 @@ $server_cards       = [
             </div>
 
             <form method="post" action="options.php" class="nxm-control-form">
-                <?php settings_fields( 'nxm_settings_group' ); ?>
+                <?php settings_fields( 'nxmedia_settings_group' ); ?>
 
                 <?php if ( ! $wizard_complete ) : ?>
                 <section class="nxm-wizard-card nxm-wizard-card--first-run" id="nxm-media-wizard">
@@ -363,8 +363,8 @@ $server_cards       = [
                                 <button type="button" class="button button-primary nxm-save-rule"><?php esc_html_e( 'Save', 'nexora-media' ); ?></button>
                             </div>
                             <div class="nxm-range-grid">
-                                <label><span><?php esc_html_e( 'Quality', 'nexora-media' ); ?></span><input class="nxm-number-live" data-option="nxm_quality" type="number" name="nxm_quality" min="40" max="95" value="<?php echo esc_attr( (string) $quality ); ?>"></label>
-                                <label><span><?php esc_html_e( 'Max Width', 'nexora-media' ); ?></span><input class="nxm-number-live" data-option="nxm_max_width" type="number" name="nxm_max_width" min="1024" max="6000" value="<?php echo esc_attr( (string) $max_width ); ?>"></label>
+                                <label><span><?php esc_html_e( 'Quality', 'nexora-media' ); ?></span><input class="nxm-number-live" data-option="nxmedia_quality" type="number" name="nxmedia_quality" min="40" max="95" value="<?php echo esc_attr( (string) $quality ); ?>"></label>
+                                <label><span><?php esc_html_e( 'Max Width', 'nexora-media' ); ?></span><input class="nxm-number-live" data-option="nxmedia_max_width" type="number" name="nxmedia_max_width" min="1024" max="6000" value="<?php echo esc_attr( (string) $max_width ); ?>"></label>
                             </div>
                         </section>
 
@@ -372,12 +372,12 @@ $server_cards       = [
                             <span class="nxm-kicker"><?php esc_html_e( 'Controls', 'nexora-media' ); ?></span>
                             <h2><?php esc_html_e( 'Delivery Settings', 'nexora-media' ); ?></h2>
                             <div class="nxm-side-settings">
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Native WebP Delivery', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Serve generated WebP variants to public visitors.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_enable_adaptive" value="0"><input class="nxm-toggle-live" data-option="nxm_enable_adaptive" type="checkbox" name="nxm_enable_adaptive" value="1" <?php checked( $adaptive_enabled ); ?>><span class="nxm-slider"></span></label></div>
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'WebP Generation', 'nexora-media' ); ?></strong><small><?php echo esc_html( $webp_supported ? __( 'Generate lightweight WebP variants.', 'nexora-media' ) : __( 'Unavailable on this server.', 'nexora-media' ) ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_enable_webp" value="0"><input class="nxm-toggle-live" data-option="nxm_enable_webp" type="checkbox" name="nxm_enable_webp" value="1" <?php checked( $webp_enabled ); ?> <?php disabled( ! $webp_supported ); ?>><span class="nxm-slider"></span></label></div>
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Queue New Uploads', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Show new uploads as pending work.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_enable_queue" value="0"><input class="nxm-toggle-live" data-option="nxm_enable_queue" type="checkbox" name="nxm_enable_queue" value="1" <?php checked( $queue_enabled ); ?>><span class="nxm-slider"></span></label></div>
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Auto Process Queue', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Run queued work automatically.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_auto_process_queue" value="0"><input class="nxm-toggle-live" data-option="nxm_auto_process_queue" type="checkbox" name="nxm_auto_process_queue" value="1" <?php checked( $auto_process_enabled ); ?>><span class="nxm-slider"></span></label></div>
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Lazy Loading', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Add safe loading attributes.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_enable_lazyload" value="0"><input class="nxm-toggle-live" data-option="nxm_enable_lazyload" type="checkbox" name="nxm_enable_lazyload" value="1" <?php checked( $lazy_enabled ); ?>><span class="nxm-slider"></span></label></div>
-                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Strip EXIF', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Remove camera metadata.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxm_strip_exif" value="0"><input class="nxm-toggle-live" data-option="nxm_strip_exif" type="checkbox" name="nxm_strip_exif" value="1" <?php checked( $strip_exif ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Native WebP Delivery', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Serve generated WebP variants to public visitors.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_enable_adaptive" value="0"><input class="nxm-toggle-live" data-option="nxmedia_enable_adaptive" type="checkbox" name="nxmedia_enable_adaptive" value="1" <?php checked( $adaptive_enabled ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'WebP Generation', 'nexora-media' ); ?></strong><small><?php echo esc_html( $webp_supported ? __( 'Generate lightweight WebP variants.', 'nexora-media' ) : __( 'Unavailable on this server.', 'nexora-media' ) ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_enable_webp" value="0"><input class="nxm-toggle-live" data-option="nxmedia_enable_webp" type="checkbox" name="nxmedia_enable_webp" value="1" <?php checked( $webp_enabled ); ?> <?php disabled( ! $webp_supported ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Queue New Uploads', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Show new uploads as pending work.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_enable_queue" value="0"><input class="nxm-toggle-live" data-option="nxmedia_enable_queue" type="checkbox" name="nxmedia_enable_queue" value="1" <?php checked( $queue_enabled ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Auto Process Queue', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Run queued work automatically.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_auto_process_queue" value="0"><input class="nxm-toggle-live" data-option="nxmedia_auto_process_queue" type="checkbox" name="nxmedia_auto_process_queue" value="1" <?php checked( $auto_process_enabled ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Lazy Loading', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Add safe loading attributes.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_enable_lazyload" value="0"><input class="nxm-toggle-live" data-option="nxmedia_enable_lazyload" type="checkbox" name="nxmedia_enable_lazyload" value="1" <?php checked( $lazy_enabled ); ?>><span class="nxm-slider"></span></label></div>
+                                <div class="nxm-setting-row"><div><strong><?php esc_html_e( 'Strip EXIF', 'nexora-media' ); ?></strong><small><?php esc_html_e( 'Remove camera metadata.', 'nexora-media' ); ?></small></div><label class="nxm-switch"><input type="hidden" name="nxmedia_strip_exif" value="0"><input class="nxm-toggle-live" data-option="nxmedia_strip_exif" type="checkbox" name="nxmedia_strip_exif" value="1" <?php checked( $strip_exif ); ?>><span class="nxm-slider"></span></label></div>
                             </div>
                         </section>
 

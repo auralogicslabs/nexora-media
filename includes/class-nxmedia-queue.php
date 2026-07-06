@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Queue {
+class NXMEDIA_Queue {
 
-    private static ?NXM_Queue $instance = null;
+    private static ?NXMEDIA_Queue $instance = null;
 
-    public static function get_instance(): NXM_Queue {
+    public static function get_instance(): NXMEDIA_Queue {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -25,8 +25,8 @@ class NXM_Queue {
         
         // Background worker endpoint and cron worker. No public nopriv worker:
         // unauthenticated optimization endpoints are unnecessary attack surface.
-        add_action( 'wp_ajax_nxm_async_process', [ $this, 'ajax_process_queue' ] );
-        add_action( 'nxm_process_queue_event', [ $this, 'process_queue_event' ] );
+        add_action( 'wp_ajax_nxmedia_async_process', [ $this, 'ajax_process_queue' ] );
+        add_action( 'nxmedia_process_queue_event', [ $this, 'process_queue_event' ] );
 
         $this->clear_passive_schedule_when_manual();
     }
@@ -40,7 +40,7 @@ class NXM_Queue {
             return $metadata;
         }
 
-        if ( ! get_option( 'nxm_enable_queue', true ) ) {
+        if ( ! get_option( 'nxmedia_enable_queue', true ) ) {
             return $metadata;
         }
 
@@ -58,7 +58,7 @@ class NXM_Queue {
             return false;
         }
 
-        $queue = get_option( 'nxm_process_queue', [] );
+        $queue = get_option( 'nxmedia_process_queue', [] );
         if ( ! is_array( $queue ) ) {
             $queue = [];
         }
@@ -73,15 +73,15 @@ class NXM_Queue {
                 'queued_at' => time(),
                 'attempts' => 0,
             ];
-            update_option( 'nxm_process_queue', $queue, false );
-            update_option( 'nxm_current_queue_total', count( $queue ), false );
-            $this->increment_stat( 'nxm_total_queued' );
+            update_option( 'nxmedia_process_queue', $queue, false );
+            update_option( 'nxmedia_current_queue_total', count( $queue ), false );
+            $this->increment_stat( 'nxmedia_total_queued' );
         } elseif ( $is_explicit && ! in_array( (string) ( $queue[ $attachment_id ]['reason'] ?? '' ), [ 'manual', 'bulk' ], true ) ) {
             $queue[ $attachment_id ]['reason'] = $reason;
-            update_option( 'nxm_process_queue', $queue, false );
+            update_option( 'nxmedia_process_queue', $queue, false );
         }
 
-        if ( get_option( 'nxm_auto_process_queue', false ) && ! $this->is_paused() ) {
+        if ( get_option( 'nxmedia_auto_process_queue', false ) && ! $this->is_paused() ) {
             $this->schedule_worker();
         }
 
@@ -89,13 +89,13 @@ class NXM_Queue {
     }
 
     private function schedule_worker( int $delay = 10 ): void {
-        if ( ! wp_next_scheduled( 'nxm_process_queue_event' ) ) {
-            wp_schedule_single_event( time() + max( 1, $delay ), 'nxm_process_queue_event' );
+        if ( ! wp_next_scheduled( 'nxmedia_process_queue_event' ) ) {
+            wp_schedule_single_event( time() + max( 1, $delay ), 'nxmedia_process_queue_event' );
         }
     }
 
     public function ajax_process_queue(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
@@ -114,11 +114,11 @@ class NXM_Queue {
     }
 
     public function process_queue_event(): void {
-        $queue = get_option( 'nxm_process_queue', [] );
+        $queue = get_option( 'nxmedia_process_queue', [] );
         $queue = is_array( $queue ) ? $queue : [];
 
-        if ( $this->is_paused() || ! get_option( 'nxm_auto_process_queue', false ) ) {
-            wp_clear_scheduled_hook( 'nxm_process_queue_event' );
+        if ( $this->is_paused() || ! get_option( 'nxmedia_auto_process_queue', false ) ) {
+            wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
             return;
         }
 
@@ -127,44 +127,44 @@ class NXM_Queue {
 
     public function optimize_attachment_now( int $attachment_id, bool $force = false ) {
         if ( $this->is_paused() ) {
-            return new WP_Error( 'nxm_processing_paused', __( 'Optimization is paused. Resume processing before optimizing images.', 'nexora-media' ) );
+            return new WP_Error( 'nxmedia_processing_paused', __( 'Optimization is paused. Resume processing before optimizing images.', 'nexora-media' ) );
         }
 
         if ( $this->queue_is_locked() ) {
             $this->enqueue_attachment( $attachment_id, 'manual' );
-            return new WP_Error( 'nxm_worker_locked', __( 'Optimization worker is already running. Image was queued.', 'nexora-media' ) );
+            return new WP_Error( 'nxmedia_worker_locked', __( 'Optimization worker is already running. Image was queued.', 'nexora-media' ) );
         }
 
-        set_transient( 'nxm_queue_lock', microtime( true ), 5 * MINUTE_IN_SECONDS );
+        set_transient( 'nxmedia_queue_lock', microtime( true ), 5 * MINUTE_IN_SECONDS );
         $this->set_current_processing( $attachment_id );
 
         try {
             $metadata = wp_get_attachment_metadata( $attachment_id );
             $result   = $this->process_attachment( $attachment_id, is_array( $metadata ) ? $metadata : [], $force );
         } catch ( Throwable $e ) {
-            $result = new WP_Error( 'nxm_processing_exception', $e->getMessage() );
+            $result = new WP_Error( 'nxmedia_processing_exception', $e->getMessage() );
         } finally {
             $this->clear_current_processing();
-            delete_transient( 'nxm_queue_lock' );
+            delete_transient( 'nxmedia_queue_lock' );
         }
 
         if ( is_wp_error( $result ) ) {
             $this->log_error( $attachment_id, $result->get_error_message() );
-            $this->increment_stat( 'nxm_total_failed' );
+            $this->increment_stat( 'nxmedia_total_failed' );
             return $result;
         }
 
-        $queue = get_option( 'nxm_process_queue', [] );
+        $queue = get_option( 'nxmedia_process_queue', [] );
         if ( is_array( $queue ) && isset( $queue[ $attachment_id ] ) ) {
             unset( $queue[ $attachment_id ] );
-            empty( $queue ) ? delete_option( 'nxm_process_queue' ) : update_option( 'nxm_process_queue', $queue, false );
-            update_option( 'nxm_current_queue_total', count( $queue ), false );
+            empty( $queue ) ? delete_option( 'nxmedia_process_queue' ) : update_option( 'nxmedia_process_queue', $queue, false );
+            update_option( 'nxmedia_current_queue_total', count( $queue ), false );
         }
 
-        $this->increment_stat( 'nxm_total_processed' );
+        $this->increment_stat( 'nxmedia_total_processed' );
 
-        if ( class_exists( 'NXM_Engine_Bridge' ) ) {
-            NXM_Engine_Bridge::get_instance()->notify_processing_complete();
+        if ( class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+            NXMEDIA_Engine_Bridge::get_instance()->notify_processing_complete();
         }
 
         return true;
@@ -172,8 +172,8 @@ class NXM_Queue {
 
     public function process_queue_batch( int $limit = 1 ): array {
         if ( $this->is_paused() ) {
-            wp_clear_scheduled_hook( 'nxm_process_queue_event' );
-            delete_transient( 'nxm_queue_lock' );
+            wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
+            delete_transient( 'nxmedia_queue_lock' );
             return [
                 'paused'    => true,
                 'processed' => 0,
@@ -186,20 +186,20 @@ class NXM_Queue {
         if ( $this->queue_is_locked() ) {
             return [ 'locked' => true ];
         }
-        set_transient( 'nxm_queue_lock', microtime( true ), 5 * MINUTE_IN_SECONDS );
+        set_transient( 'nxmedia_queue_lock', microtime( true ), 5 * MINUTE_IN_SECONDS );
 
         try {
-            $queue = get_option( 'nxm_process_queue', [] );
+            $queue = get_option( 'nxmedia_process_queue', [] );
             if ( ! is_array( $queue ) ) {
                 $queue = [];
             }
             
             if ( empty( $queue ) ) {
-                update_option( 'nxm_current_queue_total', 0, false );
+                update_option( 'nxmedia_current_queue_total', 0, false );
                 return [ 'processed' => 0, 'pending' => 0 ];
             }
 
-            $processor = NXM_Image_Processor::get_instance();
+            $processor = NXMEDIA_Image_Processor::get_instance();
             if ( ! $processor->has_engine() ) {
                 return [
                     'processed' => 0,
@@ -234,8 +234,8 @@ class NXM_Queue {
                 }
 
                 // Honor per-image cooldown so one bad image doesn't block the queue.
-                if ( class_exists( 'NXM_Queue_Health' )
-                    && NXM_Queue_Health::get_instance()->should_skip_attachment( $attachment_id ) ) {
+                if ( class_exists( 'NXMEDIA_Queue_Health' )
+                    && NXMEDIA_Queue_Health::get_instance()->should_skip_attachment( $attachment_id ) ) {
                     unset( $queue[ $attachment_id ] );
                     $skipped++;
                     continue;
@@ -246,7 +246,7 @@ class NXM_Queue {
                 try {
                     $result = $this->process_attachment( $attachment_id, is_array( $metadata ) ? $metadata : [] );
                 } catch ( Throwable $e ) {
-                    $result = new WP_Error( 'nxm_processing_exception', $e->getMessage() );
+                    $result = new WP_Error( 'nxmedia_processing_exception', $e->getMessage() );
                 }
 
                 if ( is_wp_error( $result ) ) {
@@ -257,33 +257,33 @@ class NXM_Queue {
                     if ( $queue[ $attachment_id ]['attempts'] >= 3 ) {
                         $this->log_error( $attachment_id, $result->get_error_message() );
                         unset( $queue[ $attachment_id ] );
-                        $this->increment_stat( 'nxm_total_failed' );
+                        $this->increment_stat( 'nxmedia_total_failed' );
                     }
                 } else {
                     unset( $queue[ $attachment_id ] );
                     $processed++;
-                    $this->increment_stat( 'nxm_total_processed' );
-                    if ( class_exists( 'NXM_Queue_Health' ) ) {
-                        NXM_Queue_Health::get_instance()->record_success( $attachment_id );
+                    $this->increment_stat( 'nxmedia_total_processed' );
+                    if ( class_exists( 'NXMEDIA_Queue_Health' ) ) {
+                        NXMEDIA_Queue_Health::get_instance()->record_success( $attachment_id );
                     }
                 }
             }
 
             // Re-save queue
             if ( empty( $queue ) ) {
-                delete_option( 'nxm_process_queue' );
-                update_option( 'nxm_current_queue_total', 0, false );
+                delete_option( 'nxmedia_process_queue' );
+                update_option( 'nxmedia_current_queue_total', 0, false );
             } else {
-                update_option( 'nxm_process_queue', $queue, false );
-                update_option( 'nxm_current_queue_total', count( $queue ) + $processed + $skipped, false );
-                if ( get_option( 'nxm_auto_process_queue', false ) ) {
+                update_option( 'nxmedia_process_queue', $queue, false );
+                update_option( 'nxmedia_current_queue_total', count( $queue ) + $processed + $skipped, false );
+                if ( get_option( 'nxmedia_auto_process_queue', false ) ) {
                     $this->schedule_worker( 20 );
                 }
             }
 
             // If Nexora Engine is active, trigger SSG update or purge cache.
-            if ( $processed > 0 && class_exists( 'NXM_Engine_Bridge' ) ) {
-                NXM_Engine_Bridge::get_instance()->notify_processing_complete();
+            if ( $processed > 0 && class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+                NXMEDIA_Engine_Bridge::get_instance()->notify_processing_complete();
             }
 
             return [
@@ -294,32 +294,32 @@ class NXM_Queue {
             ];
         } finally {
             $this->clear_current_processing();
-            delete_transient( 'nxm_queue_lock' );
+            delete_transient( 'nxmedia_queue_lock' );
         }
     }
 
     private function process_attachment( int $attachment_id, array $metadata, bool $force = false ) {
         $file_path = get_attached_file( $attachment_id );
         if ( ! $file_path || ! file_exists( $file_path ) ) {
-            return new WP_Error( 'nxm_missing_file', __( 'Original file missing.', 'nexora-media' ) );
+            return new WP_Error( 'nxmedia_missing_file', __( 'Original file missing.', 'nexora-media' ) );
         }
 
-        $processor = NXM_Image_Processor::get_instance();
+        $processor = NXMEDIA_Image_Processor::get_instance();
         if ( ! $processor->is_supported_file( $file_path ) ) {
-            return new WP_Error( 'nxm_unsupported_file', __( 'Unsupported image type.', 'nexora-media' ) );
+            return new WP_Error( 'nxmedia_unsupported_file', __( 'Unsupported image type.', 'nexora-media' ) );
         }
 
         if ( $force ) {
             $this->cleanup_attachment( $attachment_id );
-            delete_post_meta( $attachment_id, '_nxm_variants' );
-            delete_post_meta( $attachment_id, '_nxm_status' );
+            delete_post_meta( $attachment_id, '_nxmedia_variants' );
+            delete_post_meta( $attachment_id, '_nxmedia_status' );
         }
 
         // 1. Generate AVIF / WebP for original
-        $quality      = (int) get_option( 'nxm_quality', 82 );
+        $quality      = (int) get_option( 'nxmedia_quality', 82 );
         $quality      = max( 40, min( 95, $quality ) );
-        $avif_enabled = get_option( 'nxm_enable_avif', false ) && NXM_Feature_Gate::can_use( 'avif_generation' );
-        $webp_enabled = get_option( 'nxm_enable_webp', true );
+        $avif_enabled = get_option( 'nxmedia_enable_avif', false ) && NXMEDIA_Feature_Gate::can_use( 'avif_generation' );
+        $webp_enabled = get_option( 'nxmedia_enable_webp', true );
 
         $variants = [
             'original'   => [],
@@ -343,8 +343,8 @@ class NXM_Queue {
             }
         }
 
-        if ( get_option( 'nxm_enable_responsive_variants', false ) ) {
-            $responsive = $processor->create_sizes( $file_path, NXM_Image_Processor::responsive_widths() );
+        if ( get_option( 'nxmedia_enable_responsive_variants', false ) ) {
+            $responsive = $processor->create_sizes( $file_path, NXMEDIA_Image_Processor::responsive_widths() );
             foreach ( $responsive as $width => $size_path ) {
                 $variants['responsive'][ $width ] = [ 'source' => $size_path ];
                 if ( $avif_enabled && $processor->supports( 'avif' ) ) {
@@ -387,9 +387,9 @@ class NXM_Queue {
         $variants['bytes_out'] = $this->calculate_variant_bytes( $variants );
 
         // Save metadata flag
-        update_post_meta( $attachment_id, '_nxm_variants', wp_slash( $variants ) );
-        update_post_meta( $attachment_id, '_nxm_status', 'optimized' );
-        update_option( 'nxm_css_cache_invalidated_at', time(), false );
+        update_post_meta( $attachment_id, '_nxmedia_variants', wp_slash( $variants ) );
+        update_post_meta( $attachment_id, '_nxmedia_status', 'optimized' );
+        update_option( 'nxmedia_css_cache_invalidated_at', time(), false );
 
         return true;
     }
@@ -408,11 +408,11 @@ class NXM_Queue {
             return false;
         }
 
-        if ( 'optimized' !== (string) get_post_meta( $attachment_id, '_nxm_status', true ) ) {
+        if ( 'optimized' !== (string) get_post_meta( $attachment_id, '_nxmedia_status', true ) ) {
             return true;
         }
 
-        $variants = get_post_meta( $attachment_id, '_nxm_variants', true );
+        $variants = get_post_meta( $attachment_id, '_nxmedia_variants', true );
         if ( ! is_array( $variants ) ) {
             return true;
         }
@@ -429,14 +429,14 @@ class NXM_Queue {
     }
 
     public function queue_status(): array {
-        $queue = get_option( 'nxm_process_queue', [] );
+        $queue = get_option( 'nxmedia_process_queue', [] );
         if ( ! is_array( $queue ) ) {
             $queue = [];
         }
         $queue = $this->prune_completed_queue( $queue );
 
         $pending       = count( $queue );
-        $current_total = (int) get_option( 'nxm_current_queue_total', $pending );
+        $current_total = (int) get_option( 'nxmedia_current_queue_total', $pending );
         $current_total = $pending > 0 ? max( $pending, $current_total ) : 0;
         $done          = $current_total > 0 ? max( 0, $current_total - $pending ) : 0;
         $percent       = $current_total > 0 ? min( 100, (int) round( ( $done / $current_total ) * 100 ) ) : 100;
@@ -447,9 +447,9 @@ class NXM_Queue {
             'current_total' => $current_total,
             'done'      => $done,
             'percent'   => $percent,
-            'processed' => (int) get_option( 'nxm_total_processed', 0 ),
-            'queued'    => (int) get_option( 'nxm_total_queued', 0 ),
-            'failed'    => (int) get_option( 'nxm_total_failed', 0 ),
+            'processed' => (int) get_option( 'nxmedia_total_processed', 0 ),
+            'queued'    => (int) get_option( 'nxmedia_total_queued', 0 ),
+            'failed'    => (int) get_option( 'nxmedia_total_failed', 0 ),
             'locked'    => $this->queue_is_locked(),
             'paused'    => $this->is_paused(),
             'running'   => $this->queue_is_locked() || ( $pending > 0 && ! $this->is_paused() ),
@@ -459,11 +459,11 @@ class NXM_Queue {
     }
 
     public function prune_completed_queue( ?array $queue = null ): array {
-        $queue = is_array( $queue ) ? $queue : get_option( 'nxm_process_queue', [] );
+        $queue = is_array( $queue ) ? $queue : get_option( 'nxmedia_process_queue', [] );
         $queue = is_array( $queue ) ? $queue : [];
 
         if ( empty( $queue ) ) {
-            update_option( 'nxm_current_queue_total', 0, false );
+            update_option( 'nxmedia_current_queue_total', 0, false );
             return [];
         }
 
@@ -477,13 +477,13 @@ class NXM_Queue {
 
         if ( $changed ) {
             if ( empty( $queue ) ) {
-                delete_option( 'nxm_process_queue' );
-                update_option( 'nxm_current_queue_total', 0, false );
-                wp_clear_scheduled_hook( 'nxm_process_queue_event' );
-                delete_transient( 'nxm_queue_lock' );
+                delete_option( 'nxmedia_process_queue' );
+                update_option( 'nxmedia_current_queue_total', 0, false );
+                wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
+                delete_transient( 'nxmedia_queue_lock' );
             } else {
-                update_option( 'nxm_process_queue', $queue, false );
-                update_option( 'nxm_current_queue_total', count( $queue ), false );
+                update_option( 'nxmedia_process_queue', $queue, false );
+                update_option( 'nxmedia_current_queue_total', count( $queue ), false );
             }
         }
 
@@ -491,25 +491,25 @@ class NXM_Queue {
     }
 
     public function pause_processing( bool $clear_queue = true ): void {
-        update_option( 'nxm_processing_paused', 1, false );
-        update_option( 'nxm_auto_process_queue', 0, false );
-        wp_clear_scheduled_hook( 'nxm_process_queue_event' );
-        delete_transient( 'nxm_queue_lock' );
+        update_option( 'nxmedia_processing_paused', 1, false );
+        update_option( 'nxmedia_auto_process_queue', 0, false );
+        wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
+        delete_transient( 'nxmedia_queue_lock' );
         $this->clear_current_processing();
 
         if ( $clear_queue ) {
-            delete_option( 'nxm_process_queue' );
-            update_option( 'nxm_current_queue_total', 0, false );
+            delete_option( 'nxmedia_process_queue' );
+            update_option( 'nxmedia_current_queue_total', 0, false );
         }
     }
 
     public function resume_processing(): void {
-        update_option( 'nxm_processing_paused', 0, false );
-        delete_transient( 'nxm_queue_lock' );
+        update_option( 'nxmedia_processing_paused', 0, false );
+        delete_transient( 'nxmedia_queue_lock' );
     }
 
     public function cleanup_attachment( int $attachment_id ): void {
-        $variants = get_post_meta( $attachment_id, '_nxm_variants', true );
+        $variants = get_post_meta( $attachment_id, '_nxmedia_variants', true );
         if ( ! is_array( $variants ) ) {
             return;
         }
@@ -546,13 +546,13 @@ class NXM_Queue {
     }
 
     private function queue_is_locked(): bool {
-        $lock = get_transient( 'nxm_queue_lock' );
+        $lock = get_transient( 'nxmedia_queue_lock' );
         if ( ! $lock ) {
             return false;
         }
 
         if ( is_numeric( $lock ) && microtime( true ) - (float) $lock > 120 ) {
-            delete_transient( 'nxm_queue_lock' );
+            delete_transient( 'nxmedia_queue_lock' );
             return false;
         }
 
@@ -560,15 +560,15 @@ class NXM_Queue {
     }
 
     private function clear_passive_schedule_when_manual(): void {
-        if ( ! $this->is_paused() && get_option( 'nxm_auto_process_queue', false ) ) {
+        if ( ! $this->is_paused() && get_option( 'nxmedia_auto_process_queue', false ) ) {
             return;
         }
 
-        wp_clear_scheduled_hook( 'nxm_process_queue_event' );
+        wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
     }
 
     private function log_error( int $attachment_id, string $message ): void {
-        $errors = get_option( 'nxm_queue_errors', [] );
+        $errors = get_option( 'nxmedia_queue_errors', [] );
         if ( ! is_array( $errors ) ) {
             $errors = [];
         }
@@ -577,14 +577,14 @@ class NXM_Queue {
             'message'       => $message,
             'time'          => time(),
         ] );
-        update_option( 'nxm_queue_errors', array_slice( $errors, 0, 20 ), false );
+        update_option( 'nxmedia_queue_errors', array_slice( $errors, 0, 20 ), false );
 
         // Forward to the queue-health observer so the UI gets a structured signal.
         // Derive a stable code from the message so similar failures group together.
-        if ( class_exists( 'NXM_Queue_Health' ) ) {
+        if ( class_exists( 'NXMEDIA_Queue_Health' ) ) {
             $code = $this->derive_error_code( $message );
             $file = get_attached_file( $attachment_id );
-            NXM_Queue_Health::get_instance()->record_error(
+            NXMEDIA_Queue_Health::get_instance()->record_error(
                 $code,
                 $message,
                 $attachment_id,
@@ -618,7 +618,7 @@ class NXM_Queue {
 
         $file = get_attached_file( $attachment_id );
         set_transient(
-            'nxm_queue_current',
+            'nxmedia_queue_current',
             [
                 'id'    => $attachment_id,
                 'label' => $file ? wp_basename( $file ) : get_the_title( $attachment_id ),
@@ -628,16 +628,16 @@ class NXM_Queue {
     }
 
     private function clear_current_processing(): void {
-        delete_transient( 'nxm_queue_current' );
+        delete_transient( 'nxmedia_queue_current' );
     }
 
     private function get_current_processing(): array {
-        $current = get_transient( 'nxm_queue_current' );
+        $current = get_transient( 'nxmedia_queue_current' );
         return is_array( $current ) ? $current : [];
     }
 
     private function is_paused(): bool {
-        return (bool) get_option( 'nxm_processing_paused', false );
+        return (bool) get_option( 'nxmedia_processing_paused', false );
     }
 
     private function increment_stat( string $key ): void {

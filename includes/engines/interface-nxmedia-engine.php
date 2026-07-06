@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-interface NXM_Engine {
+interface NXMEDIA_Engine {
     
     /**
      * Check if the engine is available on the current server.

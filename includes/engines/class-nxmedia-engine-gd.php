@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Engine_GD implements NXM_Engine {
+class NXMEDIA_Engine_GD implements NXMEDIA_Engine {
 
     public static function is_available(): bool {
         return extension_loaded( 'gd' ) && function_exists( 'gd_info' );

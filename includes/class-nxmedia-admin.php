@@ -7,11 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class NXM_Admin {
+class NXMEDIA_Admin {
 
-    private static ?NXM_Admin $instance = null;
+    private static ?NXMEDIA_Admin $instance = null;
 
-    public static function get_instance(): NXM_Admin {
+    public static function get_instance(): NXMEDIA_Admin {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
@@ -26,25 +26,25 @@ class NXM_Admin {
         add_action( 'admin_enqueue_scripts',  [ $this, 'enqueue_menu_icon' ] );
 
         // AJAX: Save a single option live (toggle switch)
-        add_action( 'wp_ajax_nxm_save_option',   [ $this, 'ajax_save_option' ] );
+        add_action( 'wp_ajax_nxmedia_save_option',   [ $this, 'ajax_save_option' ] );
 
         // AJAX: Queue all existing library images for retro-optimization
-        add_action( 'wp_ajax_nxm_queue_all',      [ $this, 'ajax_queue_all' ] );
+        add_action( 'wp_ajax_nxmedia_queue_all',      [ $this, 'ajax_queue_all' ] );
 
         // AJAX: Server capability diagnostic
-        add_action( 'wp_ajax_nxm_diagnostic',     [ $this, 'ajax_diagnostic' ] );
+        add_action( 'wp_ajax_nxmedia_diagnostic',     [ $this, 'ajax_diagnostic' ] );
 
         // AJAX: Live queue status polling
-        add_action( 'wp_ajax_nxm_queue_status',   [ $this, 'ajax_queue_status' ] );
-        add_action( 'wp_ajax_nxm_stop_queue',      [ $this, 'ajax_stop_queue' ] );
+        add_action( 'wp_ajax_nxmedia_queue_status',   [ $this, 'ajax_queue_status' ] );
+        add_action( 'wp_ajax_nxmedia_stop_queue',      [ $this, 'ajax_stop_queue' ] );
 
         // AJAX: Optimize one media item from the intelligence library.
-        add_action( 'wp_ajax_nxm_optimize_attachment', [ $this, 'ajax_optimize_attachment' ] );
-        add_action( 'wp_ajax_nxm_sync_attachment', [ $this, 'ajax_sync_attachment' ] );
+        add_action( 'wp_ajax_nxmedia_optimize_attachment', [ $this, 'ajax_optimize_attachment' ] );
+        add_action( 'wp_ajax_nxmedia_sync_attachment', [ $this, 'ajax_sync_attachment' ] );
 
-        add_action( 'wp_ajax_nxm_purge_css_cache', [ $this, 'ajax_purge_css_cache' ] );
-        add_action( 'wp_ajax_nxm_toggle_delivery_mode', [ $this, 'ajax_toggle_delivery_mode' ] );
-        add_action( 'wp_ajax_nxm_complete_wizard', [ $this, 'ajax_complete_wizard' ] );
+        add_action( 'wp_ajax_nxmedia_purge_css_cache', [ $this, 'ajax_purge_css_cache' ] );
+        add_action( 'wp_ajax_nxmedia_toggle_delivery_mode', [ $this, 'ajax_toggle_delivery_mode' ] );
+        add_action( 'wp_ajax_nxmedia_complete_wizard', [ $this, 'ajax_complete_wizard' ] );
 
         add_filter( 'manage_media_columns', [ $this, 'media_columns' ] );
         add_action( 'manage_media_custom_column', [ $this, 'media_column_content' ], 10, 2 );
@@ -63,18 +63,18 @@ class NXM_Admin {
             __( 'Nexora Media', 'nexora-media' ),
             __( 'Nexora Media', 'nexora-media' ),
             'manage_options',
-            'nxm-settings',
+            'nxmedia-settings',
             [ $this, 'render_settings_page' ],
             'none',
             58
         );
 
         add_submenu_page(
-            'nxm-settings',
+            'nxmedia-settings',
             __( 'Dashboard', 'nexora-media' ),
             __( 'Dashboard', 'nexora-media' ),
             'manage_options',
-            'nxm-settings',
+            'nxmedia-settings',
             [ $this, 'render_settings_page' ]
         );
 
@@ -83,7 +83,7 @@ class NXM_Admin {
             __( 'Nexora Media', 'nexora-media' ),
             __( 'Nexora Media', 'nexora-media' ),
             'manage_options',
-            'nxm-settings',
+            'nxmedia-settings',
             [ $this, 'render_settings_page' ]
         );
 
@@ -100,15 +100,15 @@ class NXM_Admin {
      * (no echoed <style> — wp.org guideline). Runs on every admin screen.
      */
     public function enqueue_menu_icon(): void {
-        $icon = esc_url( NXM_URL . 'assets/img/nexora-icon.png' );
-        $css  = '#adminmenu #toplevel_page_nxm-settings .wp-menu-image{'
+        $icon = esc_url( NXMEDIA_URL . 'assets/img/nexora-icon.png' );
+        $css  = '#adminmenu #toplevel_page_nxmedia-settings .wp-menu-image{'
               . 'background:url("' . $icon . '") center center no-repeat !important;'
               . 'background-size:20px 20px !important;}'
-              . '#adminmenu #toplevel_page_nxm-settings .wp-menu-image img,'
-              . '#adminmenu #toplevel_page_nxm-settings .wp-menu-image:before{display:none !important;}';
-        wp_register_style( 'nxm-menu-icon', false, [], NXM_VERSION );
-        wp_enqueue_style( 'nxm-menu-icon' );
-        wp_add_inline_style( 'nxm-menu-icon', $css );
+              . '#adminmenu #toplevel_page_nxmedia-settings .wp-menu-image img,'
+              . '#adminmenu #toplevel_page_nxmedia-settings .wp-menu-image:before{display:none !important;}';
+        wp_register_style( 'nxmedia-menu-icon', false, [], NXMEDIA_VERSION );
+        wp_enqueue_style( 'nxmedia-menu-icon' );
+        wp_add_inline_style( 'nxmedia-menu-icon', $css );
     }
 
     public function enqueue_assets( string $hook ): void {
@@ -116,23 +116,23 @@ class NXM_Admin {
         // state change, so no nonce applies. WordPress sets the `page` query var.
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $page        = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-        $is_nxm_page = 0 === strpos( $page, 'nxm' );
+        $is_nxmedia_page = 0 === strpos( $page, 'nxmedia' );
 
-        if ( ! $is_nxm_page && 'upload.php' !== $hook ) {
+        if ( ! $is_nxmedia_page && 'upload.php' !== $hook ) {
             return;
         }
 
         // Keep the legacy stylesheet for Media Library column rendering (uses
         // a few nxm-media-status pills) — never on the SPA page.
-        if ( ! $is_nxm_page ) {
-            wp_enqueue_style( 'nxm-admin-css', NXM_URL . 'assets/css/admin.css', [], NXM_VERSION );
+        if ( ! $is_nxmedia_page ) {
+            wp_enqueue_style( 'nxmedia-admin-css', NXMEDIA_URL . 'assets/css/admin.css', [], NXMEDIA_VERSION );
             return;
         }
 
         // ─── New React SPA bundle ─────────────────────────────────
-        $js_file = NXM_DIR . 'assets/dist/nexora-media.js';
-        $css_file = NXM_DIR . 'assets/dist/nexora-media.css';
-        $version  = NXM_VERSION;
+        $js_file = NXMEDIA_DIR . 'assets/dist/nexora-media.js';
+        $css_file = NXMEDIA_DIR . 'assets/dist/nexora-media.css';
+        $version  = NXMEDIA_VERSION;
         if ( file_exists( $js_file ) ) {
             // Append mtime so each rebuild busts browser caches even when the
             // semantic plugin version is unchanged.
@@ -140,15 +140,15 @@ class NXM_Admin {
         }
 
         if ( file_exists( $css_file ) ) {
-            wp_enqueue_style( 'nexora-media', NXM_URL . 'assets/dist/nexora-media.css', [], $version );
+            wp_enqueue_style( 'nexora-media', NXMEDIA_URL . 'assets/dist/nexora-media.css', [], $version );
         }
 
-        wp_enqueue_script( 'nexora-media', NXM_URL . 'assets/dist/nexora-media.js', [], $version, true );
+        wp_enqueue_script( 'nexora-media', NXMEDIA_URL . 'assets/dist/nexora-media.js', [], $version, true );
 
         // Install ID — when missing or rotated, the React app wipes its
         // localStorage so wizard state survives uninstall correctly.
-        if ( ! get_option( 'nxm_install_id' ) ) {
-            update_option( 'nxm_install_id', wp_generate_uuid4(), false );
+        if ( ! get_option( 'nxmedia_install_id' ) ) {
+            update_option( 'nxmedia_install_id', wp_generate_uuid4(), false );
         }
 
         wp_localize_script( 'nexora-media', 'NexoraMedia', [
@@ -156,11 +156,11 @@ class NXM_Admin {
             'nonce'     => wp_create_nonce( 'wp_rest' ),
             'adminUrl'  => admin_url(),
             'siteUrl'   => get_site_url(),
-            'pluginUrl' => NXM_URL,
-            'version'   => NXM_VERSION,
-            'installId' => (string) get_option( 'nxm_install_id', '' ),
-            'onboardingComplete' => (bool) get_user_meta( get_current_user_id(), 'nxm_onboarding_complete', true ),
-            'engineActive' => NXM_Init::is_nexora_engine_active(),
+            'pluginUrl' => NXMEDIA_URL,
+            'version'   => NXMEDIA_VERSION,
+            'installId' => (string) get_option( 'nxmedia_install_id', '' ),
+            'onboardingComplete' => (bool) get_user_meta( get_current_user_id(), 'nxmedia_onboarding_complete', true ),
+            'engineActive' => NXMEDIA_Init::is_nexora_engine_active(),
             'pulseActive'  => defined( 'NEXORA_PULSE_VERSION' ) || file_exists( WP_PLUGIN_DIR . '/nexora-pulse/nexora-pulse.php' ),
             'user'      => [
                 'id'    => get_current_user_id(),
@@ -175,16 +175,16 @@ class NXM_Admin {
      * ───────────────────────────────────────────────────────────────────── */
 
     public function register_settings(): void {
-        register_setting( 'nxm_settings_group', 'nxm_enable_queue',    [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_auto_process_queue', [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_enable_avif',     [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_enable_webp',     [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_enable_adaptive', [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_enable_lazyload', [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_strip_exif',      [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_enable_css_cache',[ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
-        register_setting( 'nxm_settings_group', 'nxm_quality',         [ 'type' => 'integer', 'default' => 82, 'sanitize_callback' => [ $this, 'sanitize_quality' ] ] );
-        register_setting( 'nxm_settings_group', 'nxm_max_width',       [ 'type' => 'integer', 'default' => 2560, 'sanitize_callback' => [ $this, 'sanitize_max_width' ] ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_queue',    [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_auto_process_queue', [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_avif',     [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_webp',     [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_adaptive', [ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_lazyload', [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_strip_exif',      [ 'type' => 'boolean', 'default' => true, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_enable_css_cache',[ 'type' => 'boolean', 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_quality',         [ 'type' => 'integer', 'default' => 82, 'sanitize_callback' => [ $this, 'sanitize_quality' ] ] );
+        register_setting( 'nxmedia_settings_group', 'nxmedia_max_width',       [ 'type' => 'integer', 'default' => 2560, 'sanitize_callback' => [ $this, 'sanitize_max_width' ] ] );
     }
 
     /* ─────────────────────────────────────────────────────────────────────────
@@ -205,11 +205,11 @@ class NXM_Admin {
      * ───────────────────────────────────────────────────────────────────── */
 
     public function ajax_save_option(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
 
-        $boolean_allowed = [ 'nxm_enable_queue', 'nxm_auto_process_queue', 'nxm_enable_avif', 'nxm_enable_webp', 'nxm_enable_adaptive', 'nxm_enable_lazyload', 'nxm_strip_exif', 'nxm_enable_css_cache' ];
-        $numeric_allowed = [ 'nxm_quality', 'nxm_max_width' ];
+        $boolean_allowed = [ 'nxmedia_enable_queue', 'nxmedia_auto_process_queue', 'nxmedia_enable_avif', 'nxmedia_enable_webp', 'nxmedia_enable_adaptive', 'nxmedia_enable_lazyload', 'nxmedia_strip_exif', 'nxmedia_enable_css_cache' ];
+        $numeric_allowed = [ 'nxmedia_quality', 'nxmedia_max_width' ];
         $allowed         = array_merge( $boolean_allowed, $numeric_allowed );
         $option          = sanitize_key( $_POST['option'] ?? '' );
 
@@ -220,7 +220,7 @@ class NXM_Admin {
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce checked above via check_ajax_referer.
         if ( in_array( $option, $numeric_allowed, true ) ) {
             $raw_value = isset( $_POST['value'] ) ? sanitize_text_field( wp_unslash( $_POST['value'] ) ) : '0';
-            $value     = 'nxm_quality' === $option ? $this->sanitize_quality( $raw_value ) : $this->sanitize_max_width( $raw_value );
+            $value     = 'nxmedia_quality' === $option ? $this->sanitize_quality( $raw_value ) : $this->sanitize_max_width( $raw_value );
         } else {
             // absint() fully sanitizes the value to a non-negative integer.
             $value = isset( $_POST['value'] ) ? absint( wp_unslash( $_POST['value'] ) ) : 0;
@@ -229,12 +229,12 @@ class NXM_Admin {
 
         update_option( $option, $value );
 
-        if ( 'nxm_auto_process_queue' === $option && ! $value ) {
-            wp_clear_scheduled_hook( 'nxm_process_queue_event' );
+        if ( 'nxmedia_auto_process_queue' === $option && ! $value ) {
+            wp_clear_scheduled_hook( 'nxmedia_process_queue_event' );
         }
 
-        if ( in_array( $option, [ 'nxm_enable_adaptive', 'nxm_enable_webp', 'nxm_enable_avif' ], true ) && class_exists( 'NXM_Engine_Bridge' ) ) {
-            NXM_Engine_Bridge::get_instance()->notify_media_runtime_changed();
+        if ( in_array( $option, [ 'nxmedia_enable_adaptive', 'nxmedia_enable_webp', 'nxmedia_enable_avif' ], true ) && class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+            NXMEDIA_Engine_Bridge::get_instance()->notify_media_runtime_changed();
         }
 
         wp_send_json_success( [
@@ -249,11 +249,11 @@ class NXM_Admin {
      * ───────────────────────────────────────────────────────────────────── */
 
     public function ajax_queue_all(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
 
-        NXM_Queue::get_instance()->prune_completed_queue();
-        NXM_Queue::get_instance()->resume_processing();
+        NXMEDIA_Queue::get_instance()->prune_completed_queue();
+        NXMEDIA_Queue::get_instance()->resume_processing();
 
         $attachments = get_posts( [
             'post_type'      => 'attachment',
@@ -275,7 +275,7 @@ class NXM_Admin {
         $added = 0;
 
         foreach ( $attachments as $id ) {
-            if ( NXM_Queue::get_instance()->enqueue_attachment( (int) $id, 'bulk' ) ) {
+            if ( NXMEDIA_Queue::get_instance()->enqueue_attachment( (int) $id, 'bulk' ) ) {
                 $added++;
             }
         }
@@ -291,11 +291,11 @@ class NXM_Admin {
      * ───────────────────────────────────────────────────────────────────── */
 
     public function ajax_diagnostic(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
 
-        $imagick_ok = NXM_Engine_Imagick::is_available();
-        $gd_ok      = NXM_Engine_GD::is_available();
+        $imagick_ok = NXMEDIA_Engine_Imagick::is_available();
+        $gd_ok      = NXMEDIA_Engine_GD::is_available();
 
         $engine = 'none';
         $webp   = false;
@@ -303,15 +303,15 @@ class NXM_Admin {
 
         if ( $imagick_ok ) {
             $engine = 'Imagick';
-            $webp   = NXM_Engine_Imagick::supports_format( 'webp' );
-            $avif   = NXM_Engine_Imagick::supports_format( 'avif' );
+            $webp   = NXMEDIA_Engine_Imagick::supports_format( 'webp' );
+            $avif   = NXMEDIA_Engine_Imagick::supports_format( 'avif' );
         } elseif ( $gd_ok ) {
             $engine = 'GD';
-            $webp   = NXM_Engine_GD::supports_format( 'webp' );
-            $avif   = NXM_Engine_GD::supports_format( 'avif' );
+            $webp   = NXMEDIA_Engine_GD::supports_format( 'webp' );
+            $avif   = NXMEDIA_Engine_GD::supports_format( 'avif' );
         }
 
-        $queue_status = NXM_Queue::get_instance()->queue_status();
+        $queue_status = NXMEDIA_Queue::get_instance()->queue_status();
 
         wp_send_json_success( [
             'engine'        => $engine,
@@ -320,7 +320,7 @@ class NXM_Admin {
             'memory'        => size_format( memory_get_usage( true ) ),
             'memory_limit'  => ini_get( 'memory_limit' ) ?: __( 'Unknown', 'nexora-media' ),
             'php_version'   => PHP_VERSION,
-            'plugin_version'=> NXM_VERSION,
+            'plugin_version'=> NXMEDIA_VERSION,
             'queue_pending' => (int) ( $queue_status['pending'] ?? 0 ),
             'queue_locked'  => (bool) ( $queue_status['locked'] ?? false ),
             'queue_paused'  => (bool) ( $queue_status['paused'] ?? false ),
@@ -332,10 +332,10 @@ class NXM_Admin {
      * ───────────────────────────────────────────────────────────────────── */
 
     public function ajax_queue_status(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
 
-        $status    = NXM_Queue::get_instance()->queue_status();
+        $status    = NXMEDIA_Queue::get_instance()->queue_status();
         $pending   = $status['pending'];
         $processed = $status['processed'];
         $total     = (int) ( $status['current_total'] ?? $pending );
@@ -366,12 +366,12 @@ class NXM_Admin {
     }
 
     public function ajax_stop_queue(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
 
-        NXM_Queue::get_instance()->pause_processing( true );
+        NXMEDIA_Queue::get_instance()->pause_processing( true );
 
         wp_send_json_success( [
             'pending' => 0,
@@ -381,7 +381,7 @@ class NXM_Admin {
     }
 
     public function ajax_optimize_attachment(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
@@ -389,6 +389,10 @@ class NXM_Admin {
         $attachment_id = absint( $_POST['attachment_id'] ?? 0 );
         if ( ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
             wp_send_json_error( [ 'message' => __( 'Invalid image attachment.', 'nexora-media' ) ], 400 );
+        }
+        // Per-object authorization beyond the general upload_files check.
+        if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'You are not allowed to optimize this attachment.', 'nexora-media' ) ], 403 );
         }
 
         if ( function_exists( 'set_time_limit' ) ) {
@@ -414,10 +418,10 @@ class NXM_Admin {
             ] );
         }
 
-        NXM_Queue::get_instance()->resume_processing();
-        $result = NXM_Queue::get_instance()->optimize_attachment_now( $attachment_id, false );
+        NXMEDIA_Queue::get_instance()->resume_processing();
+        $result = NXMEDIA_Queue::get_instance()->optimize_attachment_now( $attachment_id, false );
 
-        if ( is_wp_error( $result ) && 'nxm_worker_locked' !== $result->get_error_code() ) {
+        if ( is_wp_error( $result ) && 'nxmedia_worker_locked' !== $result->get_error_code() ) {
             wp_send_json_error( [ 'message' => $result->get_error_message() ], 500 );
         }
 
@@ -429,7 +433,7 @@ class NXM_Admin {
     }
 
     public function ajax_toggle_delivery_mode(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
@@ -438,13 +442,17 @@ class NXM_Admin {
         if ( ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
             wp_send_json_error( [ 'message' => __( 'Invalid image attachment.', 'nexora-media' ) ], 400 );
         }
-
-        $disabled = (bool) get_post_meta( $attachment_id, '_nxm_delivery_disabled', true );
-        update_post_meta( $attachment_id, '_nxm_delivery_disabled', $disabled ? 0 : 1 );
-        if ( class_exists( 'NXM_CSS_Optimizer' ) ) {
-            NXM_CSS_Optimizer::purge_cache();
+        // Per-object authorization beyond the general upload_files check.
+        if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'You are not allowed to change delivery for this attachment.', 'nexora-media' ) ], 403 );
         }
-        do_action( 'nxm_media_delivery_mode_changed', $attachment_id, ! $disabled ? 'original' : 'optimized' );
+
+        $disabled = (bool) get_post_meta( $attachment_id, '_nxmedia_delivery_disabled', true );
+        update_post_meta( $attachment_id, '_nxmedia_delivery_disabled', $disabled ? 0 : 1 );
+        if ( class_exists( 'NXMEDIA_CSS_Optimizer' ) ) {
+            NXMEDIA_CSS_Optimizer::purge_cache();
+        }
+        do_action( 'nxmedia_media_delivery_mode_changed', $attachment_id, ! $disabled ? 'original' : 'optimized' );
 
         wp_send_json_success( [
             'row'     => $this->get_media_item_report( $attachment_id ),
@@ -453,7 +461,7 @@ class NXM_Admin {
     }
 
     public function ajax_sync_attachment(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
@@ -468,12 +476,12 @@ class NXM_Admin {
             wp_send_json_error( [ 'message' => __( 'This image needs a useful WebP variant before frontend sync can be enabled.', 'nexora-media' ) ], 400 );
         }
 
-        update_option( 'nxm_enable_webp', 1, false );
-        update_post_meta( $attachment_id, '_nxm_delivery_disabled', 0 );
-        update_post_meta( $attachment_id, '_nxm_frontend_synced_at', time() );
+        update_option( 'nxmedia_enable_webp', 1, false );
+        update_post_meta( $attachment_id, '_nxmedia_delivery_disabled', 0 );
+        update_post_meta( $attachment_id, '_nxmedia_frontend_synced_at', time() );
 
-        if ( class_exists( 'NXM_Engine_Bridge' ) ) {
-            NXM_Engine_Bridge::get_instance()->notify_media_runtime_changed();
+        if ( class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+            NXMEDIA_Engine_Bridge::get_instance()->notify_media_runtime_changed();
         }
 
         $engine_pending = false;
@@ -494,7 +502,7 @@ class NXM_Admin {
     }
 
     public function ajax_complete_wizard(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
@@ -502,25 +510,25 @@ class NXM_Admin {
         $apply_recommended = ! empty( $_POST['apply_recommended'] );
 
         if ( $apply_recommended ) {
-            $processor      = NXM_Image_Processor::get_instance();
+            $processor      = NXMEDIA_Image_Processor::get_instance();
             $webp_supported = $processor->supports( 'webp' );
 
-            update_option( 'nxm_enable_webp', $webp_supported ? 1 : 0, false );
-            update_option( 'nxm_enable_adaptive', $webp_supported ? 1 : 0, false );
-            update_option( 'nxm_enable_lazyload', 1, false );
-            update_option( 'nxm_strip_exif', 1, false );
-            update_option( 'nxm_enable_queue', 1, false );
-            update_option( 'nxm_auto_process_queue', 0, false );
-            update_option( 'nxm_processing_paused', 1, false );
-            update_option( 'nxm_enable_css_cache', 0, false );
-            update_option( 'nxm_enable_dom_rewrite', 0, false );
+            update_option( 'nxmedia_enable_webp', $webp_supported ? 1 : 0, false );
+            update_option( 'nxmedia_enable_adaptive', $webp_supported ? 1 : 0, false );
+            update_option( 'nxmedia_enable_lazyload', 1, false );
+            update_option( 'nxmedia_strip_exif', 1, false );
+            update_option( 'nxmedia_enable_queue', 1, false );
+            update_option( 'nxmedia_auto_process_queue', 0, false );
+            update_option( 'nxmedia_processing_paused', 1, false );
+            update_option( 'nxmedia_enable_css_cache', 0, false );
+            update_option( 'nxmedia_enable_dom_rewrite', 0, false );
 
-            if ( class_exists( 'NXM_Engine_Bridge' ) ) {
-                NXM_Engine_Bridge::get_instance()->notify_media_runtime_changed();
+            if ( class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+                NXMEDIA_Engine_Bridge::get_instance()->notify_media_runtime_changed();
             }
         }
 
-        update_option( 'nxm_wizard_complete', 1, false );
+        update_option( 'nxmedia_wizard_complete', 1, false );
         wp_send_json_success( [
             'message' => $apply_recommended
                 ? __( 'Recommended safe settings applied. Start optimization when you are ready.', 'nexora-media' )
@@ -529,12 +537,12 @@ class NXM_Admin {
     }
 
     public function ajax_purge_css_cache(): void {
-        check_ajax_referer( 'nxm_async', 'nonce' );
+        check_ajax_referer( 'nxmedia_async', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( [ 'message' => __( 'Permission denied.', 'nexora-media' ) ], 403 );
         }
 
-        $deleted = class_exists( 'NXM_CSS_Optimizer' ) ? NXM_CSS_Optimizer::purge_cache() : 0;
+        $deleted = class_exists( 'NXMEDIA_CSS_Optimizer' ) ? NXMEDIA_CSS_Optimizer::purge_cache() : 0;
 
         wp_send_json_success( [
             'deleted' => $deleted,
@@ -556,7 +564,7 @@ class NXM_Admin {
 
         return (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_nxm_variants' AND meta_value LIKE %s",
+                "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_nxmedia_variants' AND meta_value LIKE %s",
                 '%' . $wpdb->esc_like( '"' . $format . '"' ) . '%'
             )
         );
@@ -582,7 +590,7 @@ class NXM_Admin {
              WHERE p.post_type = 'attachment'
              AND p.post_status = 'inherit'
              AND p.post_mime_type IN ('image/jpeg','image/png','image/gif','image/webp')
-             AND pm.meta_key = '_nxm_status'
+             AND pm.meta_key = '_nxmedia_status'
              AND pm.meta_value = 'optimized'"
         );
     }
@@ -638,7 +646,7 @@ class NXM_Admin {
     public function get_media_item_report( int $attachment_id ): array {
         $file     = get_attached_file( $attachment_id );
         $source_file = $this->source_original_file( $attachment_id, $file );
-        $variants = get_post_meta( $attachment_id, '_nxm_variants', true );
+        $variants = get_post_meta( $attachment_id, '_nxmedia_variants', true );
         $variants = is_array( $variants ) ? $variants : [];
         $variants = $this->repair_variant_paths( $attachment_id, $variants, $file );
 
@@ -658,7 +666,7 @@ class NXM_Admin {
             $webp_bytes > 0 ? 'WebP' : '',
         ] ) );
         $updated_at    = ! empty( $variants['updated_at'] ) ? (int) $variants['updated_at'] : 0;
-        $status_meta   = (string) get_post_meta( $attachment_id, '_nxm_status', true );
+        $status_meta   = (string) get_post_meta( $attachment_id, '_nxmedia_status', true );
         $mime_type     = (string) get_post_mime_type( $attachment_id );
         $is_processed  = 'optimized' === $status_meta || $updated_at > 0;
         $is_optimized  = ! empty( $formats ) || $is_processed || 'image/webp' === $mime_type;
@@ -675,11 +683,11 @@ class NXM_Admin {
         } else {
             $formats_label = $is_optimized ? __( 'Original retained', 'nexora-media' ) : __( 'No variant yet', 'nexora-media' );
         }
-        $delivery_disabled = (bool) get_post_meta( $attachment_id, '_nxm_delivery_disabled', true );
+        $delivery_disabled = (bool) get_post_meta( $attachment_id, '_nxmedia_delivery_disabled', true );
         $status        = $delivery_disabled ? 'original-delivery' : ( $is_optimized ? 'optimized' : 'needs-optimization' );
         $status_label  = $delivery_disabled ? __( 'Original delivery', 'nexora-media' ) : ( $is_optimized ? __( 'Fully optimized', 'nexora-media' ) : __( 'Needs optimization', 'nexora-media' ) );
-        $adaptive_ready = (bool) get_option( 'nxm_enable_adaptive', false );
-        $webp_ready     = (bool) get_option( 'nxm_enable_webp', true );
+        $adaptive_ready = (bool) get_option( 'nxmedia_enable_adaptive', false );
+        $webp_ready     = (bool) get_option( 'nxmedia_enable_webp', true );
         $optimized_original_ready = $is_optimized && empty( $formats ) && ( ! empty( $generated_formats ) || $best_bytes > 0 );
         $frontend_output_active = $is_optimized && ! $delivery_disabled && $adaptive_ready && $webp_ready && ! empty( $formats );
         $frontend_synced = $frontend_output_active || ( $is_optimized && ! $delivery_disabled && $optimized_original_ready );
@@ -774,7 +782,7 @@ class NXM_Admin {
         $repaired = $this->repair_variant_tree( $variants, dirname( $file ), $changed );
 
         if ( $changed ) {
-            update_post_meta( $attachment_id, '_nxm_variants', wp_slash( $repaired ) );
+            update_post_meta( $attachment_id, '_nxmedia_variants', wp_slash( $repaired ) );
         }
 
         return $repaired;
@@ -863,23 +871,23 @@ class NXM_Admin {
     }
 
     public function media_columns( array $columns ): array {
-        $columns['nxm_media'] = __( 'Nexora', 'nexora-media' );
+        $columns['nxmedia_media'] = __( 'Nexora', 'nexora-media' );
         return $columns;
     }
 
     public function media_column_content( string $column_name, int $post_id ): void {
-        if ( 'nxm_media' !== $column_name || ! wp_attachment_is_image( $post_id ) ) {
+        if ( 'nxmedia_media' !== $column_name || ! wp_attachment_is_image( $post_id ) ) {
             return;
         }
 
         $item = $this->get_media_item_report( $post_id );
         echo '<span class="nxm-media-status nxm-media-status--' . esc_attr( $item['status'] ) . '">' . esc_html( $item['status_label'] ) . '</span>';
-        echo '<br><a href="' . esc_url( admin_url( 'admin.php?page=nxm-settings' ) ) . '">' . esc_html__( 'Open report', 'nexora-media' ) . '</a>';
+        echo '<br><a href="' . esc_url( admin_url( 'admin.php?page=nxmedia-settings' ) ) . '">' . esc_html__( 'Open report', 'nexora-media' ) . '</a>';
     }
 
     public function media_row_actions( array $actions, WP_Post $post ): array {
         if ( 'attachment' === $post->post_type && wp_attachment_is_image( $post->ID ) ) {
-            $actions['nxm_media'] = '<a href="' . esc_url( admin_url( 'admin.php?page=nxm-settings' ) ) . '">' . esc_html__( 'Nexora Media report', 'nexora-media' ) . '</a>';
+            $actions['nxmedia_media'] = '<a href="' . esc_url( admin_url( 'admin.php?page=nxmedia-settings' ) ) . '">' . esc_html__( 'Nexora Media report', 'nexora-media' ) . '</a>';
         }
 
         return $actions;
