@@ -4,7 +4,7 @@ Tags: webp, image optimization, lazy load, performance, media
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -138,12 +138,6 @@ To reproduce the compiled bundle from source (see BUILD.md in the repository for
 This runs Vite (`vite.config.ts`) over the `frontend/` sources and writes the bundle to `assets/dist/`. Node.js 18+ and npm 9+ are required. The plugin runs entirely from the built output at runtime; `node_modules/` is a development dependency only and is not shipped.
 
 == Changelog ==
-
-= 1.0.1 =
-* Namespaced all internal data (options, meta, hooks, AJAX actions) under a longer, more distinctive prefix to avoid any chance of collisions with other plugins. Existing settings are migrated automatically on update.
-* Hardened REST and AJAX endpoints with per-attachment capability checks.
-* Explicitly paired the frontend delivery output buffer with its close for predictable behaviour in shared environments.
-* Documented the public source repository and build steps in the readme.
 
 = 1.0.0 =
 First public release of Nexora Media.

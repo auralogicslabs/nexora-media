@@ -13,7 +13,7 @@
  * Plugin Name:       Nexora Media – Image Optimization
  * Plugin URI:        https://auralogicslabs.com/products/nexora-media
  * Description:       Safe image optimization for WordPress — WebP variants, background queue, adaptive delivery, and Nexora Engine SSG bridge.
- * Version:           1.0.1
+ * Version:           1.0.0
  * Author:            Auralogics Labs
  * Author URI:        https://auralogicslabs.com
  * License:           GPL-2.0-or-later
@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Global Constants
 if ( ! defined( 'NXMEDIA_VERSION' ) ) {
-    define( 'NXMEDIA_VERSION', '1.0.1' );
+    define( 'NXMEDIA_VERSION', '1.0.0' );
 }
 if ( ! defined( 'NXMEDIA_FILE' ) ) {
     define( 'NXMEDIA_FILE', __FILE__ );
