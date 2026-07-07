@@ -24,11 +24,23 @@ export default function Dashboard() {
     refetchInterval: (q) => (q.state.data?.queue?.running ? 2000 : 30_000),
   });
 
+  const optimizing      = useAppStore((s) => s.optimizing);
+  const optimizeDone    = useAppStore((s) => s.optimizeDone);
+  const optimizeTotal   = useAppStore((s) => s.optimizeTotal);
+  const runOptimization = useAppStore((s) => s.runOptimization);
+  const stopOptimization = useAppStore((s) => s.stopOptimization);
+
   const startQueue = useMutation({
     mutationFn: () => api.post<any>('queue/start'),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['summary'] });
-      addToast('success', 'Optimization started', `${data?.queued ?? 0} image(s) queued.`);
+      const queued = data?.queued ?? 0;
+      if (queued > 0) {
+        addToast('success', 'Optimization started', `Processing ${queued} image(s)…`);
+        void runOptimization(queued, () => qc.invalidateQueries({ queryKey: ['summary'] }));
+      } else {
+        addToast('info', 'Nothing to optimize', 'All images are already optimized.');
+      }
     },
     onError: (e: any) => addToast('error', 'Could not start', e?.message ?? 'Please try again.'),
   });
@@ -54,8 +66,8 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle="Safe image optimization for WordPress — WebP variants, lazy load, frontend delivery"
         actions={
-          queue?.running ? (
-            <button className="np-btn-secondary text-xs" onClick={() => stopQueue.mutate()} disabled={stopQueue.isPending}>
+          (optimizing || queue?.running) ? (
+            <button className="np-btn-secondary text-xs" onClick={() => { stopOptimization(); stopQueue.mutate(); }}>
               <Square className="w-3.5 h-3.5" /> Stop optimization
             </button>
           ) : (
@@ -89,34 +101,40 @@ export default function Dashboard() {
         )}
 
         {/* Live progress */}
-        {queue?.running && (
-          <div
-            className="rounded-2xl p-4"
-            style={{
-              background: 'linear-gradient(135deg, #F4FCEA 0%, #E5F8CC 100%)',
-              border: '1px solid #CCEF9C',
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2.5">
-                <Loader2 className="w-4 h-4 animate-spin text-lime-700" />
-                <span className="text-sm font-bold text-violet-900">Optimizing your library</span>
-                <span className="text-xs text-violet-700">{queue.current_done}/{queue.current_total} images</span>
+        {(() => {
+          const done    = optimizing ? optimizeDone  : (queue?.current_done ?? 0);
+          const total   = optimizing ? optimizeTotal : (queue?.current_total ?? 0);
+          const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+          if (!optimizing && !queue?.running) return null;
+          return (
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                background: 'linear-gradient(135deg, #F4FCEA 0%, #E5F8CC 100%)',
+                border: '1px solid #CCEF9C',
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <Loader2 className="w-4 h-4 animate-spin text-lime-700" />
+                  <span className="text-sm font-bold text-violet-900">Optimizing your library</span>
+                  <span className="text-xs text-violet-700">{done}/{total} images</span>
+                </div>
+                <span className="text-sm font-bold text-lime-700">{percent}%</span>
               </div>
-              <span className="text-sm font-bold text-lime-700">{queue.percent}%</span>
+              <div className="h-2 rounded-full bg-white/60 overflow-hidden">
+                <div className="h-full transition-all"
+                  style={{
+                    width: `${percent}%`,
+                    background: 'linear-gradient(90deg, #4F8C10, #65B113)',
+                  }} />
+              </div>
+              {!optimizing && queue?.current_label && (
+                <p className="text-xs text-violet-700 mt-2 truncate">Working on: {queue.current_label}</p>
+              )}
             </div>
-            <div className="h-2 rounded-full bg-white/60 overflow-hidden">
-              <div className="h-full transition-all"
-                style={{
-                  width: `${queue.percent}%`,
-                  background: 'linear-gradient(90deg, #4F8C10, #65B113)',
-                }} />
-            </div>
-            {queue.current_label && (
-              <p className="text-xs text-violet-700 mt-2 truncate">Working on: {queue.current_label}</p>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -135,10 +153,10 @@ export default function Dashboard() {
           />
           <StatTile
             icon={ShieldCheck}
-            label="Space Saved"
-            value={lib ? formatBytes(lib.saved ?? 0) : '—'}
+            label="Delivered to visitors"
+            value={lib ? formatBytes(lib.delivered_saved ?? 0) : '—'}
             accent="bg-emerald-50 text-emerald-700"
-            suffix={lib?.saved_percent != null ? `· ${lib.saved_percent}%` : undefined}
+            suffix={lib?.delivered != null ? `· ${lib.delivered} of ${lib.optimized}` : undefined}
           />
           <StatTile
             icon={Cpu}
@@ -148,6 +166,31 @@ export default function Dashboard() {
             suffix={engine?.webp_supported ? 'WebP ready' : 'WebP missing'}
           />
         </div>
+
+        {/* Honest delivery note — only when some optimized images aren't served
+            as WebP (delivery off globally/per-image, or a builder-safe skip).
+            Keeps the report truthful: generated ≠ always delivered. */}
+        {lib && lib.optimized > 0 && lib.delivered < lib.optimized && (
+          <div
+            className="rounded-xl px-4 py-3 flex items-start gap-2.5 text-xs leading-relaxed"
+            style={{ background: '#FAF8F2', border: '1px solid #E8E2D4' }}
+          >
+            <ShieldCheck className="w-4 h-4 text-violet-700 flex-shrink-0 mt-0.5" />
+            <p className="text-slate-700">
+              <span className="font-bold text-slate-900">
+                {lib.delivered} of {lib.optimized} optimized images are served as WebP
+              </span>{' '}
+              to visitors right now{' '}
+              (<span className="font-semibold">{formatBytes(lib.delivered_saved ?? 0)}</span> delivered
+              {lib.saved > lib.delivered_saved
+                ? <>, of {formatBytes(lib.saved ?? 0)} generated</>
+                : null}).
+              The rest keep their original on purpose — logos, sliders, carousels and hero
+              (LCP) images are left untouched to avoid breaking builders, or delivery is
+              turned off for them.
+            </p>
+          </div>
+        )}
 
         {/* Delivery health card + (only-if-installed) Engine bridge.
             When Engine isn't active we don't even hint at it — Media is its own product. */}
@@ -192,6 +235,19 @@ function DeliveryCard({ deliveryReady, webpEnabled, adaptiveEnabled, webpSupport
         <CheckRow ok={adaptiveEnabled} label="Adaptive delivery enabled" />
         <CheckRow ok={webpSupported}   label="Server can encode WebP" />
       </div>
+      {deliveryReady && (
+        <div
+          className="mt-3 rounded-lg px-3 py-2 flex items-start gap-2 text-[11px] leading-snug text-slate-600"
+          style={{ background: '#FAF8F2', border: '1px solid #E8E2D4' }}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-violet-700 flex-shrink-0 mt-px" />
+          <span>
+            Sliders, logos and hero (LCP) images keep their original on the frontend
+            by design — this protects builder scripts and page-speed, so seeing a few
+            original images there is expected, not a fault.
+          </span>
+        </div>
+      )}
       <NavLink to="/delivery" className="np-btn-secondary text-xs mt-4 inline-flex">
         Manage delivery <ArrowRight className="w-3 h-3" />
       </NavLink>

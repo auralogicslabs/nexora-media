@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Layers, CheckCircle2, AlertCircle, RefreshCw, ExternalLink,
@@ -73,71 +73,13 @@ export default function Library() {
   // process one batch until nothing is pending. This makes optimization work on
   // every host without relying on WP-Cron (which often never fires on LocalWP
   // and low-traffic sites).
-  const drivingRef = useRef(false);
-  // Driver-owned progress so the bar reflects the browser-driven run in real
-  // time, independent of the 10s summary poll (which can't refetch while the
-  // driver loop is busy awaiting batch calls).
-  const [driveProgress, setDriveProgress] = useState<{ done: number; total: number } | null>(null);
-
-  const driveQueue = async (total: number) => {
-    if (drivingRef.current) return;
-    drivingRef.current = true;
-    setDriveProgress({ done: 0, total });
-    let done = 0;
-    let consecutiveErrors = 0;
-    let noProgress = 0;
-    try {
-      // Safety cap: allow a generous number of iterations (one image can need a
-      // couple of retries) but never loop forever.
-      const maxIterations = total * 4 + 40;
-      for (let i = 0; i < maxIterations; i++) {
-        let res: any;
-        try {
-          res = await api.post<any>('queue/process');
-          consecutiveErrors = 0;
-        } catch (e: any) {
-          // A single batch can fail (a very large image timing out, a transient
-          // server hiccup). Don't kill the whole run — skip and keep going. Only
-          // bail if the server errors several times in a row.
-          consecutiveErrors++;
-          if (consecutiveErrors >= 4) {
-            addToast('error', 'Optimization stopped', e?.message || 'The server stopped responding.');
-            break;
-          }
-          await new Promise((r) => setTimeout(r, 600));
-          continue;
-        }
-
-        if (res?.paused) break;
-
-        // Advance our own progress from the authoritative pending count.
-        const pending = res?.pending ?? 0;
-        done = Math.max(done, total - pending);
-        setDriveProgress({ done, total });
-        // Refresh the library rows periodically (not every tick — that's heavy).
-        if (i % 3 === 0) qc.invalidateQueries({ queryKey: ['summary'] });
-
-        if (pending <= 0) break;
-
-        // Guard against a stuck image that neither processes nor drops out.
-        if ((res?.processed ?? 0) === 0) {
-          noProgress++;
-          if (noProgress >= 8) {
-            addToast('info', 'Optimization finished', 'Some images could not be optimized and were skipped.');
-            break;
-          }
-        } else {
-          noProgress = 0;
-        }
-      }
-      addToast('success', 'Optimization complete', 'Your library has been optimized.');
-    } finally {
-      drivingRef.current = false;
-      setDriveProgress(null);
-      qc.invalidateQueries({ queryKey: ['summary'] });
-      qc.invalidateQueries({ queryKey: ['library'] });
-    }
-  };
+  // The optimization run is driven by the global store so it keeps going even
+  // if the user navigates to another page mid-run.
+  const optimizing    = useAppStore((s) => s.optimizing);
+  const optimizeDone  = useAppStore((s) => s.optimizeDone);
+  const optimizeTotal = useAppStore((s) => s.optimizeTotal);
+  const runOptimization = useAppStore((s) => s.runOptimization);
+  const stopOptimization = useAppStore((s) => s.stopOptimization);
 
   const startQueue = useMutation({
     mutationFn: () => api.post<any>('queue/start'),
@@ -147,7 +89,10 @@ export default function Library() {
       const queued = data?.queued ?? 0;
       if (queued > 0) {
         addToast('success', 'Optimization started', `Processing ${queued} image(s)…`);
-        void driveQueue(queued);
+        void runOptimization(queued, () => {
+          qc.invalidateQueries({ queryKey: ['summary'] });
+          qc.invalidateQueries({ queryKey: ['library'] });
+        });
       } else {
         addToast('info', 'Nothing to optimize', 'All images are already optimized.');
       }
@@ -202,8 +147,8 @@ export default function Library() {
         title="Media Library"
         subtitle="Optimize, sync delivery, and review per-image savings — one screen, full control"
         actions={
-          running ? (
-            <button className="np-btn-secondary text-xs" onClick={() => stopQueue.mutate()} disabled={stopQueue.isPending}>
+          optimizing ? (
+            <button className="np-btn-secondary text-xs" onClick={() => { stopOptimization(); stopQueue.mutate(); }}>
               <Square className="w-3.5 h-3.5" /> Stop
             </button>
           ) : (
@@ -222,11 +167,10 @@ export default function Library() {
         {/* Live queue progress. Prefer the browser-driver's own counters (they
             update in real time); fall back to the polled queue status. */}
         {(() => {
-          const showDrive = !!driveProgress;
-          const done    = showDrive ? driveProgress!.done : (queue?.current_done ?? 0);
-          const total   = showDrive ? driveProgress!.total : (queue?.current_total ?? 0);
+          const done    = optimizing ? optimizeDone  : (queue?.current_done ?? 0);
+          const total   = optimizing ? optimizeTotal : (queue?.current_total ?? 0);
           const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-          const visible = showDrive || running;
+          const visible = optimizing || running;
           if (!visible) return null;
           return (
             <div
@@ -251,7 +195,7 @@ export default function Library() {
                     background: 'linear-gradient(90deg, #4F8C10, #65B113)',
                   }} />
               </div>
-              {!showDrive && queue?.current_label && (
+              {!optimizing && queue?.current_label && (
                 <p className="text-xs text-violet-700 mt-2 truncate">Working on: {queue.current_label}</p>
               )}
             </div>

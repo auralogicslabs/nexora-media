@@ -622,6 +622,16 @@ class NXMEDIA_Admin {
         $optimized    = 0;   // best-variant bytes of those same images
         $optimized_no = 0;
 
+        // "Delivered" tracks what visitors actually RECEIVE as WebP — a stricter
+        // subset of "optimized". An image can hold a generated WebP variant on
+        // disk yet still be served as the original (delivery toggled off for it,
+        // adaptive/webp disabled globally, or the variant isn't smaller). Counting
+        // savings the visitor never gets would make the report false, so we report
+        // the delivered figures separately from the generated ones.
+        $delivered_no       = 0;
+        $delivered_original = 0;
+        $delivered_best     = 0;
+
         foreach ( $attachments as $attachment_id ) {
             $item = $this->get_media_item_report( (int) $attachment_id );
 
@@ -636,17 +646,31 @@ class NXMEDIA_Admin {
             $optimized_no++;
             $original  += (int) $item['source_bytes'];
             $optimized += (int) $item['best_bytes'];
+
+            // frontend_output_active === the image is actually served as WebP to
+            // logged-out visitors (optimized + delivery on + adaptive/webp on +
+            // a usefully-smaller variant exists).
+            if ( ! empty( $item['frontend_output_active'] ) ) {
+                $delivered_no++;
+                $delivered_original += (int) $item['source_bytes'];
+                $delivered_best     += (int) $item['best_bytes'];
+            }
         }
 
-        $saved = max( 0, $original - $optimized );
+        $saved           = max( 0, $original - $optimized );
+        $delivered_saved = max( 0, $delivered_original - $delivered_best );
 
         return [
-            'total'          => count( $attachments ),
-            'optimized'      => $optimized_no,
-            'bytes_in'       => $original,
-            'best_bytes'     => $optimized,
-            'saved'          => $saved,
-            'saved_percent'  => $original > 0 ? round( ( $saved / $original ) * 100 ) : 0,
+            'total'            => count( $attachments ),
+            'optimized'        => $optimized_no,
+            'bytes_in'         => $original,
+            'best_bytes'       => $optimized,
+            'saved'            => $saved,
+            'saved_percent'    => $original > 0 ? round( ( $saved / $original ) * 100 ) : 0,
+            // Delivered = what visitors truly receive as WebP right now.
+            'delivered'        => $delivered_no,
+            'delivered_saved'  => $delivered_saved,
+            'delivered_percent'=> $optimized_no > 0 ? (int) round( ( $delivered_no / $optimized_no ) * 100 ) : 0,
         ];
     }
 
