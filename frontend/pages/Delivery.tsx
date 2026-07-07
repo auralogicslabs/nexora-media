@@ -20,12 +20,23 @@ export default function Delivery() {
 
   const save = useMutation({
     mutationFn: (patch: any) => api.post<any>('settings', patch),
-    onSuccess: () => {
+    // Optimistic update: flip the toggle in the cache immediately so the
+    // checkbox responds on click, then reconcile with the server result.
+    onMutate: async (patch: any) => {
+      await qc.cancelQueries({ queryKey: ['settings'] });
+      const prev = qc.getQueryData<any>(['settings']);
+      qc.setQueryData<any>(['settings'], (old: any) => ({ ...(old ?? {}), ...patch }));
+      return { prev };
+    },
+    onError: (e: any, _patch, ctx: any) => {
+      // Roll back the optimistic change on failure.
+      if (ctx?.prev) qc.setQueryData(['settings'], ctx.prev);
+      addToast('error', 'Save failed', e?.message);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['settings'] });
       qc.invalidateQueries({ queryKey: ['summary'] });
-      addToast('success', 'Saved', 'Delivery settings updated.');
     },
-    onError: (e: any) => addToast('error', 'Save failed', e?.message),
   });
 
   const purgeCache = useMutation({

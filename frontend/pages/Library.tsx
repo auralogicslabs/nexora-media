@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Layers, CheckCircle2, AlertCircle, RefreshCw, ExternalLink,
@@ -69,12 +69,88 @@ export default function Library() {
       addToast('info', 'Delivery toggled', 'This image switched between original and optimized output.');
     },
   });
+  // Browser-driven queue driver: after enqueuing, repeatedly ask the server to
+  // process one batch until nothing is pending. This makes optimization work on
+  // every host without relying on WP-Cron (which often never fires on LocalWP
+  // and low-traffic sites).
+  const drivingRef = useRef(false);
+  // Driver-owned progress so the bar reflects the browser-driven run in real
+  // time, independent of the 10s summary poll (which can't refetch while the
+  // driver loop is busy awaiting batch calls).
+  const [driveProgress, setDriveProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const driveQueue = async (total: number) => {
+    if (drivingRef.current) return;
+    drivingRef.current = true;
+    setDriveProgress({ done: 0, total });
+    let done = 0;
+    let consecutiveErrors = 0;
+    let noProgress = 0;
+    try {
+      // Safety cap: allow a generous number of iterations (one image can need a
+      // couple of retries) but never loop forever.
+      const maxIterations = total * 4 + 40;
+      for (let i = 0; i < maxIterations; i++) {
+        let res: any;
+        try {
+          res = await api.post<any>('queue/process');
+          consecutiveErrors = 0;
+        } catch (e: any) {
+          // A single batch can fail (a very large image timing out, a transient
+          // server hiccup). Don't kill the whole run — skip and keep going. Only
+          // bail if the server errors several times in a row.
+          consecutiveErrors++;
+          if (consecutiveErrors >= 4) {
+            addToast('error', 'Optimization stopped', e?.message || 'The server stopped responding.');
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 600));
+          continue;
+        }
+
+        if (res?.paused) break;
+
+        // Advance our own progress from the authoritative pending count.
+        const pending = res?.pending ?? 0;
+        done = Math.max(done, total - pending);
+        setDriveProgress({ done, total });
+        // Refresh the library rows periodically (not every tick — that's heavy).
+        if (i % 3 === 0) qc.invalidateQueries({ queryKey: ['summary'] });
+
+        if (pending <= 0) break;
+
+        // Guard against a stuck image that neither processes nor drops out.
+        if ((res?.processed ?? 0) === 0) {
+          noProgress++;
+          if (noProgress >= 8) {
+            addToast('info', 'Optimization finished', 'Some images could not be optimized and were skipped.');
+            break;
+          }
+        } else {
+          noProgress = 0;
+        }
+      }
+      addToast('success', 'Optimization complete', 'Your library has been optimized.');
+    } finally {
+      drivingRef.current = false;
+      setDriveProgress(null);
+      qc.invalidateQueries({ queryKey: ['summary'] });
+      qc.invalidateQueries({ queryKey: ['library'] });
+    }
+  };
+
   const startQueue = useMutation({
     mutationFn: () => api.post<any>('queue/start'),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['summary'] });
       qc.invalidateQueries({ queryKey: ['library'] });
-      addToast('success', 'Optimization started', `${data?.queued ?? 0} image(s) queued.`);
+      const queued = data?.queued ?? 0;
+      if (queued > 0) {
+        addToast('success', 'Optimization started', `Processing ${queued} image(s)…`);
+        void driveQueue(queued);
+      } else {
+        addToast('info', 'Nothing to optimize', 'All images are already optimized.');
+      }
     },
     onError: (e: any) => addToast('error', 'Could not start', e?.message),
   });
@@ -143,35 +219,44 @@ export default function Library() {
         {/* Health alert — surfaces stale lock, repeated failures, cron problems */}
         <QueueHealthAlert health={summary.data?.queue_health} />
 
-        {/* Live queue progress — shown only when running */}
-        {running && (
-          <div
-            className="rounded-2xl p-4"
-            style={{
-              background: 'linear-gradient(135deg, #F4FCEA 0%, #E5F8CC 100%)',
-              border: '1px solid #CCEF9C',
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2.5">
-                <Loader2 className="w-4 h-4 animate-spin text-lime-700" />
-                <span className="text-sm font-bold text-violet-900">Optimizing your library</span>
-                <span className="text-xs text-violet-700">{queue.current_done}/{queue.current_total} images</span>
+        {/* Live queue progress. Prefer the browser-driver's own counters (they
+            update in real time); fall back to the polled queue status. */}
+        {(() => {
+          const showDrive = !!driveProgress;
+          const done    = showDrive ? driveProgress!.done : (queue?.current_done ?? 0);
+          const total   = showDrive ? driveProgress!.total : (queue?.current_total ?? 0);
+          const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+          const visible = showDrive || running;
+          if (!visible) return null;
+          return (
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                background: 'linear-gradient(135deg, #F4FCEA 0%, #E5F8CC 100%)',
+                border: '1px solid #CCEF9C',
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <Loader2 className="w-4 h-4 animate-spin text-lime-700" />
+                  <span className="text-sm font-bold text-violet-900">Optimizing your library</span>
+                  <span className="text-xs text-violet-700">{done}/{total} images</span>
+                </div>
+                <span className="text-sm font-bold text-lime-700">{percent}%</span>
               </div>
-              <span className="text-sm font-bold text-lime-700">{queue.percent}%</span>
+              <div className="h-2 rounded-full bg-white/60 overflow-hidden">
+                <div className="h-full transition-all"
+                  style={{
+                    width: `${percent}%`,
+                    background: 'linear-gradient(90deg, #4F8C10, #65B113)',
+                  }} />
+              </div>
+              {!showDrive && queue?.current_label && (
+                <p className="text-xs text-violet-700 mt-2 truncate">Working on: {queue.current_label}</p>
+              )}
             </div>
-            <div className="h-2 rounded-full bg-white/60 overflow-hidden">
-              <div className="h-full transition-all"
-                style={{
-                  width: `${queue.percent}%`,
-                  background: 'linear-gradient(90deg, #4F8C10, #65B113)',
-                }} />
-            </div>
-            {queue.current_label && (
-              <p className="text-xs text-violet-700 mt-2 truncate">Working on: {queue.current_label}</p>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

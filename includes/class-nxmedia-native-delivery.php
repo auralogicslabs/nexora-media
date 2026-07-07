@@ -14,6 +14,9 @@ class NXMEDIA_Native_Delivery {
 
     private static ?NXMEDIA_Native_Delivery $instance = null;
 
+    /** Output-buffer level captured when the page buffer is opened. -1 = none. */
+    private int $page_buffer_level = -1;
+
     public static function get_instance(): NXMEDIA_Native_Delivery {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -35,6 +38,68 @@ class NXMEDIA_Native_Delivery {
         add_filter( 'wp_get_attachment_image_src', [ $this, 'filter_image_src' ], 20, 4 );
         add_filter( 'wp_calculate_image_srcset', [ $this, 'filter_srcset' ], 20, 5 );
         add_filter( 'the_content', [ $this, 'filter_content_images' ], 999 );
+
+        // Whole-page swap: the_content only covers post-body markup, so images
+        // rendered by page builders (Elementor widgets, swiper carousels, etc.)
+        // outside the_content are missed. A page-level output buffer catches
+        // every <img> on the page and swaps eligible src/srcset URLs to the
+        // generated WebP — using the exact same safe, per-URL logic as the
+        // the_content filter (originals are always kept; only URLs with an
+        // existing variant on disk are rewritten).
+        add_action( 'template_redirect', [ $this, 'start_page_buffer' ], 20 );
+    }
+
+    /**
+     * Opens a page-level output buffer that swaps eligible <img> URLs to WebP
+     * across the entire rendered page. Skips contexts where full-page rewriting
+     * is unsafe or redundant: builder edit/preview frames, feeds, REST/AJAX,
+     * sitemaps, and when Nexora Engine's SSG is capturing the page (Engine bakes
+     * the swapped URLs into its static mirror instead).
+     */
+    public function start_page_buffer(): void {
+        if ( is_admin() || is_feed() || is_embed()
+            || ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+            || ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+            || ( defined( 'NEXORA_CAPTURE' ) )
+            || ( defined( 'NEXORA_MIRRORING' ) ) ) {
+            return;
+        }
+        if ( class_exists( 'NXMEDIA_Init' ) && ! NXMEDIA_Init::is_frontend_delivery_request() ) {
+            return;
+        }
+        ob_start( [ $this, 'rewrite_page_images' ] );
+        $this->page_buffer_level = ob_get_level();
+        add_action( 'shutdown', [ $this, 'flush_page_buffer' ], 0 );
+    }
+
+    /**
+     * Output-buffer callback: swaps eligible <img> URLs across the whole page.
+     * Reuses filter_content_images() so the swap logic is identical to the
+     * the_content path (single source of truth, same safety guards).
+     *
+     * @param string $html The full page HTML.
+     * @return string
+     */
+    public function rewrite_page_images( string $html ): string {
+        if ( '' === $html || false === stripos( $html, '<img' ) ) {
+            return $html;
+        }
+        return $this->filter_content_images( $html );
+    }
+
+    /**
+     * Explicitly flushes the page buffer opened in start_page_buffer(), rather
+     * than relying on PHP's implicit end-of-request flush, so the buffer stack
+     * stays balanced for other plugins/themes.
+     */
+    public function flush_page_buffer(): void {
+        if ( $this->page_buffer_level < 1 ) {
+            return;
+        }
+        while ( ob_get_level() >= $this->page_buffer_level ) {
+            ob_end_flush();
+        }
+        $this->page_buffer_level = -1;
     }
 
     public function filter_image_attributes( array $attr, WP_Post $attachment, $size ): array {

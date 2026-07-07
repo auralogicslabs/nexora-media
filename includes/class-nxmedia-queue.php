@@ -304,6 +304,16 @@ class NXMEDIA_Queue {
             return new WP_Error( 'nxmedia_missing_file', __( 'Original file missing.', 'nexora-media' ) );
         }
 
+        // Decoding a large image into a raw bitmap can need many times the file
+        // size in RAM (a 16 MB PNG can exceed 500 MB uncompressed). Raise the
+        // limit the same way WordPress core does for image work, and give the
+        // encode more time, so big images don't fatally exhaust memory or time
+        // out mid-request and stall the whole queue.
+        wp_raise_memory_limit( 'image' );
+        if ( function_exists( 'set_time_limit' ) ) {
+            @set_time_limit( 120 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged, WordPress.PHP.NoSilencedErrors.Discouraged
+        }
+
         $processor = NXMEDIA_Image_Processor::get_instance();
         if ( ! $processor->is_supported_file( $file_path ) ) {
             return new WP_Error( 'nxmedia_unsupported_file', __( 'Unsupported image type.', 'nexora-media' ) );

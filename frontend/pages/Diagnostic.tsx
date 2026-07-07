@@ -10,10 +10,12 @@ import { useAppStore } from '../lib/store';
 import PageHeader from '../components/ui/PageHeader';
 import Spinner from '../components/ui/Spinner';
 import QueueHealthAlert from '../components/ui/QueueHealthAlert';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 export default function Diagnostic() {
   const qc = useQueryClient();
   const { addToast } = useAppStore();
+  const [eraseOpen, setEraseOpen] = React.useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['diagnostic'],
@@ -44,6 +46,7 @@ export default function Diagnostic() {
   const erase = useMutation({
     mutationFn: () => api.post<any>('optimized/erase', { confirm: 'ERASE' }),
     onSuccess: (res: any) => {
+      setEraseOpen(false);
       qc.invalidateQueries({ queryKey: ['summary'] });
       qc.invalidateQueries({ queryKey: ['library'] });
       qc.invalidateQueries({ queryKey: ['diagnostic'] });
@@ -55,21 +58,11 @@ export default function Diagnostic() {
         `Deleted ${files} variant file${files === 1 ? '' : 's'} and reset ${imgs} image${imgs === 1 ? '' : 's'}. Originals were kept.`,
       );
     },
-    onError: (e: any) => addToast('error', 'Erase failed', e?.message),
+    onError: (e: any) => {
+      setEraseOpen(false);
+      addToast('error', 'Erase failed', e?.message);
+    },
   });
-
-  const confirmErase = () => {
-    if (
-      window.confirm(
-        'Erase ALL optimized files?\n\n' +
-        'This permanently deletes every generated WebP/AVIF variant and resets each image to "needs optimization". ' +
-        'Your ORIGINAL images are never touched. You can re-optimize at any time.\n\n' +
-        'Are you sure?',
-      )
-    ) {
-      erase.mutate();
-    }
-  };
 
   const errors = (errorsQ.data?.errors ?? []) as any[];
   const health = summary.data?.queue_health;
@@ -194,7 +187,7 @@ export default function Diagnostic() {
                 </div>
                 <button
                   type="button"
-                  onClick={confirmErase}
+                  onClick={() => setEraseOpen(true)}
                   disabled={erase.isPending}
                   className="np-btn-danger text-xs flex-shrink-0"
                 >
@@ -206,6 +199,23 @@ export default function Diagnostic() {
           </>
         ) : null}
       </div>
+
+      <ConfirmDialog
+        open={eraseOpen}
+        tone="danger"
+        title="Erase all optimized files?"
+        message="This permanently deletes every generated WebP and AVIF variant across your whole library."
+        details={[
+          'Your original images are never touched.',
+          'Each image resets to “needs optimization”.',
+          'You can re-optimize the entire library again at any time.',
+        ]}
+        requireTyped="ERASE"
+        confirmLabel="Erase files"
+        busy={erase.isPending}
+        onConfirm={() => erase.mutate()}
+        onCancel={() => setEraseOpen(false)}
+      />
     </div>
   );
 }

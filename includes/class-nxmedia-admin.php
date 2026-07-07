@@ -618,17 +618,24 @@ class NXMEDIA_Admin {
             'fields'         => 'ids',
         ] );
 
-        $original     = 0;
-        $optimized    = 0;
+        $original     = 0;   // source bytes of images Nexora actually optimized
+        $optimized    = 0;   // best-variant bytes of those same images
         $optimized_no = 0;
 
         foreach ( $attachments as $attachment_id ) {
             $item = $this->get_media_item_report( (int) $attachment_id );
-            $original  += $item['source_bytes'];
-            $optimized += $item['best_bytes'] ?: $item['working_bytes'];
-            if ( ! empty( $item['is_optimized'] ) ) {
-                $optimized_no++;
+
+            // Only count savings for images Nexora has genuinely optimized with a
+            // real variant. Images that are merely WordPress's own -scaled file
+            // (no Nexora variant) must NOT contribute — otherwise "Space Saved"
+            // shows a number even when nothing is optimized (e.g. after erase).
+            if ( empty( $item['is_optimized'] ) || (int) $item['best_bytes'] <= 0 ) {
+                continue;
             }
+
+            $optimized_no++;
+            $original  += (int) $item['source_bytes'];
+            $optimized += (int) $item['best_bytes'];
         }
 
         $saved = max( 0, $original - $optimized );

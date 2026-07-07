@@ -70,6 +70,12 @@ class NXMEDIA_REST {
 			'permission_callback' => $caps,
 		] );
 
+		register_rest_route( self::NS, '/queue/process', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'queue_process' ],
+			'permission_callback' => $caps,
+		] );
+
 		register_rest_route( self::NS, '/queue/errors', [
 			'methods'             => 'GET',
 			'callback'            => [ $this, 'get_queue_errors' ],
@@ -271,6 +277,36 @@ class NXMEDIA_REST {
 		return rest_ensure_response( [
 			'success' => true,
 			'data'    => [ 'paused' => true ],
+		] );
+	}
+
+	/**
+	 * Processes ONE batch of the optimization queue and returns progress. The
+	 * admin app calls this in a loop after queue/start, which drives the whole
+	 * run from the browser — reliable on every host regardless of whether
+	 * WP-Cron fires (LocalWP and low-traffic sites often never fire it).
+	 */
+	public function queue_process( WP_REST_Request $request ): WP_REST_Response {
+		$queue  = NXMEDIA_Queue::get_instance();
+		$result = $queue->process_queue_batch( 1 );
+
+		// If the worker lock is held (another batch is mid-flight), report the
+		// current pending count so the driver keeps polling without erroring.
+		if ( ! empty( $result['locked'] ) ) {
+			$pending = count( (array) get_option( 'nxmedia_process_queue', [] ) );
+			return rest_ensure_response( [
+				'success' => true,
+				'data'    => [ 'processed' => 0, 'pending' => $pending, 'locked' => true ],
+			] );
+		}
+
+		return rest_ensure_response( [
+			'success' => true,
+			'data'    => [
+				'processed' => (int) ( $result['processed'] ?? 0 ),
+				'pending'   => (int) ( $result['pending'] ?? 0 ),
+				'paused'    => ! empty( $result['paused'] ),
+			],
 		] );
 	}
 
@@ -516,46 +552,58 @@ class NXMEDIA_REST {
 			);
 		}
 
-		global $wpdb;
-
-		// All attachments that Nexora has ever generated a variant for.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-shot maintenance action over the plugin's own post-meta; no caching applies.
-		$ids = $wpdb->get_col(
-			"SELECT DISTINCT post_id FROM {$wpdb->postmeta}
-			 WHERE meta_key IN ( '_nxmedia_variants', '_nxmedia_status' )"
-		);
+		// Scan EVERY image attachment, not just ones with current tracking meta.
+		// A previous run (or an older erase) may have removed the meta while
+		// leaving variant files orphaned on disk, so we can't rely on meta alone.
+		$ids = get_posts( [
+			'post_type'      => 'attachment',
+			'post_mime_type' => [ 'image/jpeg', 'image/png', 'image/gif', 'image/webp' ],
+			'post_status'    => 'inherit',
+			'numberposts'    => -1,
+			'fields'         => 'ids',
+		] );
 
 		$files_deleted = 0;
 		$images_reset  = 0;
+
+		$queue = NXMEDIA_Queue::get_instance();
 
 		foreach ( (array) $ids as $attachment_id ) {
 			$attachment_id = (int) $attachment_id;
 			$source_path   = get_attached_file( $attachment_id );
 
-			// Delete the .webp / .avif sidecars sitting next to the original.
-			if ( $source_path && file_exists( $source_path ) ) {
-				$dir  = dirname( $source_path );
-				$name = pathinfo( $source_path, PATHINFO_FILENAME );
-				foreach ( [ 'webp', 'avif' ] as $ext ) {
-					$variant = $dir . DIRECTORY_SEPARATOR . $name . '.' . $ext;
-					if ( is_file( $variant ) ) {
-						wp_delete_file( $variant );
-						if ( ! file_exists( $variant ) ) {
-							$files_deleted++;
-						}
-					}
-				}
-			}
+			// Count how many variant files exist for this image BEFORE we delete,
+			// so we can report an accurate deletion total.
+			$before = $this->count_variant_files( $source_path );
+
+			// Use the plugin's own cleanup, which reads the _nxmedia_variants meta
+			// and removes EVERY tracked file — the main .webp/.avif sidecars AND
+			// all responsive -nxm-<width>w.webp/.avif variants. Must run BEFORE we
+			// delete the meta, or the paths can no longer be resolved.
+			$queue->cleanup_attachment( $attachment_id );
+
+			// Belt-and-suspenders: sweep any stray Nexora variants left on disk
+			// that weren't recorded in meta (e.g. from an interrupted run).
+			$this->sweep_stray_variants( $source_path );
+
+			$after   = $this->count_variant_files( $source_path );
+			$removed = max( 0, $before - $after );
+			$files_deleted += $removed;
 
 			// Clear the per-image Nexora tracking meta so the library shows the
 			// image as "needs optimization" again.
+			$had_meta = get_post_meta( $attachment_id, '_nxmedia_variants', true )
+				|| get_post_meta( $attachment_id, '_nxmedia_status', true );
 			delete_post_meta( $attachment_id, '_nxmedia_variants' );
 			delete_post_meta( $attachment_id, '_nxmedia_status' );
 			delete_post_meta( $attachment_id, '_nxmedia_delivery_disabled' );
 			delete_post_meta( $attachment_id, '_nxmedia_frontend_synced_at' );
 			delete_post_meta( $attachment_id, '_nxmedia_failure_count' );
 			delete_post_meta( $attachment_id, '_nxmedia_skip_until' );
-			$images_reset++;
+
+			if ( $removed > 0 || $had_meta ) {
+				$images_reset++;
+			}
 		}
 
 		// Purge the generated CSS cache and reset queue counters/state.
@@ -581,6 +629,55 @@ class NXMEDIA_REST {
 				'images_reset'  => $images_reset,
 			],
 		] );
+	}
+
+	/**
+	 * Returns the list of Nexora-generated variant files that currently exist
+	 * next to an original image: the main image.webp / image.avif sidecars plus
+	 * every responsive image-nxm-<width>w.webp / .avif variant.
+	 *
+	 * @return string[] Absolute paths that exist on disk.
+	 */
+	private function variant_files_for( ?string $source_path ): array {
+		if ( ! $source_path ) {
+			return [];
+		}
+		$dir       = dirname( $source_path );
+		$name      = pathinfo( $source_path, PATHINFO_FILENAME );
+		$real_src  = wp_normalize_path( $source_path );
+		$found     = [];
+
+		foreach ( [ 'webp', 'avif' ] as $ext ) {
+			// Main sidecar (image.webp / image.avif). NEVER treat the original
+			// upload itself as a variant — if the user uploaded a .webp, its own
+			// path equals this and must not be deleted.
+			$main = $dir . DIRECTORY_SEPARATOR . $name . '.' . $ext;
+			if ( is_file( $main ) && wp_normalize_path( $main ) !== $real_src ) {
+				$found[] = $main;
+			}
+			// Responsive variants (image-nxm-320w.webp, …). The '-nxm-' marker is
+			// unique to Nexora, so this never matches WordPress's own subsizes.
+			foreach ( (array) glob( $dir . DIRECTORY_SEPARATOR . $name . '-nxm-*w.' . $ext ) as $variant ) {
+				if ( is_file( $variant ) && wp_normalize_path( $variant ) !== $real_src ) {
+					$found[] = $variant;
+				}
+			}
+		}
+		return $found;
+	}
+
+	private function count_variant_files( ?string $source_path ): int {
+		return count( $this->variant_files_for( $source_path ) );
+	}
+
+	/**
+	 * Deletes any Nexora variant files left next to the original that weren't
+	 * removed by the meta-driven cleanup (interrupted runs, orphaned files).
+	 */
+	private function sweep_stray_variants( ?string $source_path ): void {
+		foreach ( $this->variant_files_for( $source_path ) as $file ) {
+			wp_delete_file( $file );
+		}
 	}
 
 	public function complete_wizard( WP_REST_Request $request ): WP_REST_Response {
