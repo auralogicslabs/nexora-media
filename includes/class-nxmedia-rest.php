@@ -125,6 +125,12 @@ class NXMEDIA_REST {
 			'permission_callback' => $caps,
 		] );
 
+		register_rest_route( self::NS, '/optimized/erase', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'erase_optimized' ],
+			'permission_callback' => $caps,
+		] );
+
 		register_rest_route( self::NS, '/wizard/complete', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'complete_wizard' ],
@@ -491,6 +497,89 @@ class NXMEDIA_REST {
 		return rest_ensure_response( [
 			'success' => true,
 			'data'    => [ 'deleted' => $deleted ],
+		] );
+	}
+
+	/**
+	 * Erase every generated WebP/AVIF variant file and reset all images back to
+	 * "needs optimization". Destructive — requires confirm: "ERASE" in the body.
+	 * The ORIGINAL images are never touched; only the sidecar variants Nexora
+	 * created (image.webp / image.avif next to image.jpg) are removed, along
+	 * with the per-image tracking meta, the CSS cache, and the queue counters.
+	 */
+	public function erase_optimized( WP_REST_Request $request ): WP_REST_Response {
+		$body = $request->get_json_params() ?: [];
+		if ( 'ERASE' !== ( $body['confirm'] ?? '' ) ) {
+			return new WP_REST_Response(
+				[ 'success' => false, 'message' => __( 'Confirmation required.', 'nexora-media' ) ],
+				400
+			);
+		}
+
+		global $wpdb;
+
+		// All attachments that Nexora has ever generated a variant for.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-shot maintenance action over the plugin's own post-meta; no caching applies.
+		$ids = $wpdb->get_col(
+			"SELECT DISTINCT post_id FROM {$wpdb->postmeta}
+			 WHERE meta_key IN ( '_nxmedia_variants', '_nxmedia_status' )"
+		);
+
+		$files_deleted = 0;
+		$images_reset  = 0;
+
+		foreach ( (array) $ids as $attachment_id ) {
+			$attachment_id = (int) $attachment_id;
+			$source_path   = get_attached_file( $attachment_id );
+
+			// Delete the .webp / .avif sidecars sitting next to the original.
+			if ( $source_path && file_exists( $source_path ) ) {
+				$dir  = dirname( $source_path );
+				$name = pathinfo( $source_path, PATHINFO_FILENAME );
+				foreach ( [ 'webp', 'avif' ] as $ext ) {
+					$variant = $dir . DIRECTORY_SEPARATOR . $name . '.' . $ext;
+					if ( is_file( $variant ) ) {
+						wp_delete_file( $variant );
+						if ( ! file_exists( $variant ) ) {
+							$files_deleted++;
+						}
+					}
+				}
+			}
+
+			// Clear the per-image Nexora tracking meta so the library shows the
+			// image as "needs optimization" again.
+			delete_post_meta( $attachment_id, '_nxmedia_variants' );
+			delete_post_meta( $attachment_id, '_nxmedia_status' );
+			delete_post_meta( $attachment_id, '_nxmedia_delivery_disabled' );
+			delete_post_meta( $attachment_id, '_nxmedia_frontend_synced_at' );
+			delete_post_meta( $attachment_id, '_nxmedia_failure_count' );
+			delete_post_meta( $attachment_id, '_nxmedia_skip_until' );
+			$images_reset++;
+		}
+
+		// Purge the generated CSS cache and reset queue counters/state.
+		if ( class_exists( 'NXMEDIA_CSS_Optimizer' ) ) {
+			NXMEDIA_CSS_Optimizer::purge_cache();
+		}
+		update_option( 'nxmedia_total_processed', 0, false );
+		update_option( 'nxmedia_total_failed', 0, false );
+		update_option( 'nxmedia_total_queued', 0, false );
+		update_option( 'nxmedia_current_queue_total', 0, false );
+		delete_option( 'nxmedia_process_queue' );
+		delete_transient( 'nxmedia_queue_lock' );
+		delete_transient( 'nxmedia_queue_current' );
+
+		if ( class_exists( 'NXMEDIA_Engine_Bridge' ) ) {
+			NXMEDIA_Engine_Bridge::get_instance()->notify_media_runtime_changed();
+		}
+
+		return rest_ensure_response( [
+			'success' => true,
+			'data'    => [
+				'files_deleted' => $files_deleted,
+				'images_reset'  => $images_reset,
+			],
 		] );
 	}
 

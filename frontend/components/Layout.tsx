@@ -209,10 +209,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         className="flex-shrink-0 flex flex-col transition-all duration-200 ease-out np-scrollbar-dark"
         style={{
           width: sidebarCollapsed ? 'var(--np-sidebar-collapsed-w)' : 'var(--np-sidebar-w)',
+          // Sticky sidebar: pin to the top of the viewport and cap its height to
+          // the visible panel height so it never leaves a coloured gap when the
+          // content column grows taller than the viewport. The nav scrolls
+          // internally (see <nav> overflow-y-auto) instead of the whole aside.
           height: 'var(--ncx-panel-h)',
           position: 'sticky',
-          top: 0,
-          overflowY: 'auto',
+          top: 'var(--ncx-panel-margin-top, 16px)',
+          alignSelf: 'flex-start',
           background: 'var(--np-bg-sidebar)',
           color: 'var(--np-text-on-dark)',
         }}

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Cpu, Image as ImageIcon, Server, CheckCircle2, AlertCircle,
   Activity, HardDrive, Upload, Database, RefreshCw, AlertOctagon,
-  Clock, Copy,
+  Clock, Copy, Trash2,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../lib/store';
@@ -40,6 +40,36 @@ export default function Diagnostic() {
     },
     onError: (e: any) => addToast('error', 'Recovery failed', e?.message),
   });
+
+  const erase = useMutation({
+    mutationFn: () => api.post<any>('optimized/erase', { confirm: 'ERASE' }),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['summary'] });
+      qc.invalidateQueries({ queryKey: ['library'] });
+      qc.invalidateQueries({ queryKey: ['diagnostic'] });
+      const files = res?.files_deleted ?? 0;
+      const imgs = res?.images_reset ?? 0;
+      addToast(
+        'success',
+        'Optimized files erased',
+        `Deleted ${files} variant file${files === 1 ? '' : 's'} and reset ${imgs} image${imgs === 1 ? '' : 's'}. Originals were kept.`,
+      );
+    },
+    onError: (e: any) => addToast('error', 'Erase failed', e?.message),
+  });
+
+  const confirmErase = () => {
+    if (
+      window.confirm(
+        'Erase ALL optimized files?\n\n' +
+        'This permanently deletes every generated WebP/AVIF variant and resets each image to "needs optimization". ' +
+        'Your ORIGINAL images are never touched. You can re-optimize at any time.\n\n' +
+        'Are you sure?',
+      )
+    ) {
+      erase.mutate();
+    }
+  };
 
   const errors = (errorsQ.data?.errors ?? []) as any[];
   const health = summary.data?.queue_health;
@@ -145,6 +175,33 @@ export default function Diagnostic() {
                   Nexora Media cannot generate variants without one.
                 </p>
               )}
+            </div>
+
+            {/* Danger zone — erase all generated variants */}
+            <div className="rounded-2xl bg-white ring-1 ring-red-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-red-100 bg-red-50/60 flex items-center gap-2">
+                <AlertOctagon className="w-4 h-4 text-red-600" />
+                <h2 className="text-sm font-bold text-red-800">Danger zone</h2>
+              </div>
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900">Erase all optimized files</p>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Deletes every generated WebP/AVIF variant and resets each image to
+                    “needs optimization”. Your original images are always kept — you can
+                    re-optimize your whole library again at any time.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={confirmErase}
+                  disabled={erase.isPending}
+                  className="np-btn-danger text-xs flex-shrink-0"
+                >
+                  {erase.isPending ? <Spinner size="sm" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Erase optimized files
+                </button>
+              </div>
             </div>
           </>
         ) : null}

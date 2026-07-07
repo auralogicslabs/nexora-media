@@ -31,9 +31,15 @@ class ApiClient {
         ...options.headers,
       },
     });
-    const data = await res.json();
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      // Non-JSON response (e.g. a PHP fatal/HTML error page or empty body).
+      throw new Error(`Server returned a non-JSON response (HTTP ${res.status}). Check the browser console / PHP error log.`);
+    }
     if (!res.ok) {
-      throw new Error(data?.message ?? `API error ${res.status}`);
+      throw new Error(data?.message ? `${data.message} (HTTP ${res.status})` : `API error ${res.status}`);
     }
     // Match REST envelope { success: true, data: ... } the controllers return.
     return (data?.data ?? data) as T;

@@ -211,10 +211,10 @@ export default function Library() {
           </div>
 
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none z-10" />
             <input
               type="search"
-              className="np-input pl-9"
+              className="np-input !pl-9"
               placeholder="Search by filename…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
