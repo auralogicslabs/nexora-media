@@ -98,6 +98,11 @@ class NXMEDIA_Init {
     }
 
     public static function is_nexora_engine_active(): bool {
+        // Current Engine prefix (NEXENG_) first, then legacy (NCX_) so the
+        // bridge works with both older and current Engine builds.
+        if ( defined( 'NEXENG_VERSION' ) || class_exists( 'NEXENG_Init' ) || class_exists( 'NEXENG_SSG' ) ) {
+            return true;
+        }
         if ( defined( 'NCX_VERSION' ) || class_exists( 'NCX_Init' ) || class_exists( 'NCX_SSG' ) ) {
             return true;
         }
@@ -106,7 +111,9 @@ class NXMEDIA_Init {
             return true;
         }
 
-        return '' !== (string) get_option( 'ncx_version', '' ) || '' !== (string) get_option( 'ncx_ssg_enabled', '' );
+        return '' !== (string) get_option( 'nexeng_ssg_enabled', '' )
+            || '' !== (string) get_option( 'ncx_version', '' )
+            || '' !== (string) get_option( 'ncx_ssg_enabled', '' );
     }
 
     public static function is_frontend_delivery_request(): bool {

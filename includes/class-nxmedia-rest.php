@@ -489,7 +489,17 @@ class NXMEDIA_REST {
 			return new WP_REST_Response( [ 'success' => false, 'message' => __( 'Optimize the image first.', 'nexora-media' ) ], 400 );
 		}
 
-		update_option( 'nxmedia_enable_webp', 1, false );
+		// Never mutate site-wide settings from a per-attachment endpoint: this
+		// route is open to upload_files users, and the global WebP toggle is an
+		// admin decision. If delivery is off site-wide, syncing one image cannot
+		// take effect — say so instead of silently changing site configuration.
+		if ( ! get_option( 'nxmedia_enable_webp', true ) ) {
+			return new WP_REST_Response( [
+				'success' => false,
+				'message' => __( 'WebP delivery is disabled site-wide. An administrator can enable it under Frontend Delivery settings.', 'nexora-media' ),
+			], 400 );
+		}
+
 		update_post_meta( $id, '_nxmedia_delivery_disabled', 0 );
 		update_post_meta( $id, '_nxmedia_frontend_synced_at', time() );
 

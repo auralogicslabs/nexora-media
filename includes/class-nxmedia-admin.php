@@ -470,13 +470,24 @@ class NXMEDIA_Admin {
         if ( ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
             wp_send_json_error( [ 'message' => __( 'Invalid image attachment.', 'nexora-media' ) ], 400 );
         }
+        // Per-object authorization beyond the general upload_files check.
+        if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'You are not allowed to sync this attachment.', 'nexora-media' ) ], 403 );
+        }
 
         $before = $this->get_media_item_report( $attachment_id );
         if ( empty( $before['formats'] ) ) {
             wp_send_json_error( [ 'message' => __( 'This image needs a useful WebP variant before frontend sync can be enabled.', 'nexora-media' ) ], 400 );
         }
 
-        update_option( 'nxmedia_enable_webp', 1, false );
+        // Never mutate site-wide settings from a per-attachment action: this
+        // handler is open to upload_files users, and the global WebP toggle is
+        // an admin decision. If delivery is off site-wide, syncing one image
+        // cannot take effect — say so instead of silently changing site config.
+        if ( ! get_option( 'nxmedia_enable_webp', true ) ) {
+            wp_send_json_error( [ 'message' => __( 'WebP delivery is disabled site-wide. An administrator can enable it under Frontend Delivery settings.', 'nexora-media' ) ], 400 );
+        }
+
         update_post_meta( $attachment_id, '_nxmedia_delivery_disabled', 0 );
         update_post_meta( $attachment_id, '_nxmedia_frontend_synced_at', time() );
 
@@ -485,8 +496,9 @@ class NXMEDIA_Admin {
         }
 
         $engine_pending = false;
-        if ( class_exists( 'NCX_SSG' ) && method_exists( 'NCX_SSG', 'is_enabled' ) && NCX_SSG::is_enabled() ) {
-            $ssg = NCX_SSG::get_instance();
+        $ssg_class = class_exists( 'NXMEDIA_Engine_Bridge' ) ? NXMEDIA_Engine_Bridge::engine_ssg_class() : '';
+        if ( $ssg_class && method_exists( $ssg_class, 'is_enabled' ) && $ssg_class::is_enabled() ) {
+            $ssg = $ssg_class::get_instance();
             if ( method_exists( $ssg, 'schedule_global_invalidate' ) ) {
                 $ssg->schedule_global_invalidate();
                 $engine_pending = true;

@@ -212,7 +212,10 @@ class NXMEDIA_Html_Rewriter {
                 return $matches[0];
             }
 
-            return 'url(' . $quote . esc_url_raw( $variant ) . $quote . ')';
+            // esc_url() (not esc_url_raw): this URL is emitted into rendered
+            // the_content HTML, so it needs display escaping, not the storage
+            // sanitization esc_url_raw provides.
+            return 'url(' . $quote . esc_url( $variant ) . $quote . ')';
         }, $content );
     }
 

@@ -25,11 +25,31 @@ class NXMEDIA_Engine_Bridge {
     }
 
     /**
+     * Nexora Engine's SSG class name, supporting both the current (NEXENG_)
+     * and legacy (NCX_) prefixes so the bridge keeps working across Engine
+     * versions. Empty string when Engine is not active.
+     */
+    public static function engine_ssg_class(): string {
+        if ( class_exists( 'NEXENG_SSG' ) ) {
+            return 'NEXENG_SSG';
+        }
+        if ( class_exists( 'NCX_SSG' ) ) {
+            return 'NCX_SSG';
+        }
+        return '';
+    }
+
+    /** True when Nexora Engine (any supported version) is active. */
+    public static function engine_active(): bool {
+        return class_exists( 'NEXENG_Init' ) || class_exists( 'NCX_Init' );
+    }
+
+    /**
      * Called by the background queue when a batch of images finishes processing.
      * Signals Nexora Engine without deleting static mirrors or triggering builds.
      */
     public function notify_processing_complete(): void {
-        if ( ! class_exists( 'NCX_Init' ) ) {
+        if ( ! self::engine_active() ) {
             return;
         }
 
@@ -44,13 +64,14 @@ class NXMEDIA_Engine_Bridge {
     }
 
     public function notify_media_runtime_changed(): void {
-        if ( ! class_exists( 'NCX_Init' ) ) {
+        if ( ! self::engine_active() ) {
             return;
         }
 
         update_option( 'nxmedia_engine_media_changed_at', time(), false );
-        if ( class_exists( 'NCX_SSG' ) && method_exists( 'NCX_SSG', 'is_enabled' ) && NCX_SSG::is_enabled() ) {
-            $ssg = NCX_SSG::get_instance();
+        $ssg_class = self::engine_ssg_class();
+        if ( $ssg_class && method_exists( $ssg_class, 'is_enabled' ) && $ssg_class::is_enabled() ) {
+            $ssg = $ssg_class::get_instance();
             if ( method_exists( $ssg, 'schedule_global_invalidate' ) ) {
                 $ssg->schedule_global_invalidate();
             }
