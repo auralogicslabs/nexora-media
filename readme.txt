@@ -141,6 +141,7 @@ This runs Vite (`vite.config.ts`) over the `frontend/` sources and writes the bu
 
 = 1.0.0 =
 First public release of Nexora Media.
+* Tested against WordPress 7.1.
 * WebP and AVIF variant generation — Imagick preferred, GD fallback.
 * Background optimization queue with safe batching, worker locking, and per-image failure cooldown.
 * Adaptive frontend delivery — eligible image URLs are swapped to the optimized variant for logged-out visitors only; the original is always kept and served as a fallback.
